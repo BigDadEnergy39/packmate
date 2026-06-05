@@ -1,0 +1,2620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#3B2510" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PackMate" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>PackMate — Never Forget a Thing</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Crimson Pro', Georgia, serif; background: #E8CFA0; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(139,90,43,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(139,90,43,0.35); }
+    input::placeholder, textarea::placeholder { color: rgba(139,90,43,0.35); }
+    input:focus, textarea:focus { border-color: rgba(139,90,43,0.3) !important; }
+    /* Prevent pull-to-refresh in standalone mode */
+    html, body { overflow-x: hidden; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" integrity="sha512-8Q6Y9XnTbOE+JNvjBQwJ2H8S+UV4uA6hiRykhdtIyDYZ2TprdNmWOUaKdGzOhyr4dCyk287OejbPvwl7lrfqrQ==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" integrity="sha512-MOCpqoRoisCTwJ8vQQiciZv0qcpROCidek3GTFS6KTk2+y7munJIlKCVkFCYY+p3ErYFXCjmFjnfTTRSC1OHWQ==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js" integrity="sha512-OG8Ewzlpr7HnTHwrXzN256M6xbPdDJdurFYIRh0vRHOeFsL0S9yIwHiWSA2kopUevhG/ta4qyVVc2hCRSJy2MQ==" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+if (!window.storage) {
+  window.storage = {
+    async get(key) {
+      const val = localStorage.getItem(key);
+      if (val === null) throw new Error("Key not found");
+      return { key, value: val };
+    },
+    async set(key, value) {
+      localStorage.setItem(key, value);
+      return { key, value };
+    },
+    async delete(key) {
+      localStorage.removeItem(key);
+      return { key, deleted: true };
+    },
+    async list(prefix) {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!prefix || k.startsWith(prefix)) keys.push(k);
+      }
+      return { keys };
+    }
+  };
+}
+
+
+const ACTIVITY_TEMPLATES = {
+  camping: {
+    label: "Camping",
+    icon: "⛺",
+    color: "#2D5016",
+    groupItems: ["DSLR Camera", "First aid kit", "Firewood / fire starter", "Lantern", "Tarp / rain shelter", "Trash bags", "Maps / trail guide", "Multi-tool"],
+    items: {
+      adult: ["Tent", "Sleeping bag", "Sleeping pad", "Headlamp", "Sunglasses", "Camp chair", "Hiking boots", "Warm jacket", "Rain gear", "Sunscreen", "Bug spray", "Pocket knife", "Toiletries bag"],
+      child: ["Sleeping bag (kid-size)", "Flashlight", "Sunglasses", "Warm layers", "Sneakers", "Sun hat", "Comfort toy", "Coloring book & crayons", "Bug spray (kid-safe)"],
+      baby: ["Pack-n-play", "Baby sleeping bag", "Diapers & wipes", "Baby carrier", "Warm onesies", "Baby sunscreen", "Blanket", "Pacifier"],
+      pet: ["Leash & collar", "Pet bed", "Waste bags", "Pet first aid", "Tie-out cable"],
+    },
+  },
+
+
+  roadtrip: {
+    label: "Road Trip",
+    icon: "🚗",
+    color: "#7B2D8B",
+    groupItems: ["DSLR Camera", "Paper towels / napkins", "Trash bag for the car", "First aid kit", "Roadside emergency kit", "Shared playlist / audiobooks", "Physical map / atlas (backup)", "Car phone charger (multi-port)"],
+    items: {
+      adult: ["Phone charger & car mount", "Comfortable clothes", "Sunglasses", "Travel pillow", "Playlist/audiobooks", "Cash & cards", "ID/passport", "Toiletries", "Change of clothes", "Reusable bags"],
+      child: ["Car entertainment (tablet, books)", "Headphones", "Sunglasses", "Comfort blanket", "Travel games", "Crayons & coloring book", "Change of clothes", "Car seat"],
+      baby: ["Car seat", "Diapers & wipes (lots!)", "Pacifier", "Change of clothes x3", "Blanket", "Toys", "Diaper bag", "Trash bags"],
+      pet: ["Pet seat belt/carrier", "Leash & collar", "Waste bags", "Favorite toy", "Pet blanket", "Vet records"],
+    },
+  },
+  business: {
+    label: "Business Trip",
+    icon: "💼",
+    color: "#1A1A2E",
+    groupItems: ["DSLR Camera", "Shared presentation materials", "Team business cards", "Portable projector / adapter", "Extension cord / power strip"],
+    items: {
+      adult: ["Business attire", "Dress shoes", "Sunglasses", "Laptop & charger", "Business cards", "Portfolio/notebook", "Toiletries", "Casual outfit", "Gym clothes", "Garment bag", "Travel adapter", "ID/passport", "Boarding pass"],
+      child: [],
+      baby: [],
+      pet: [],
+    },
+  },
+
+  cabin: {
+    label: "Cabin Trip",
+    icon: "🏡",
+    color: "#8B5E3C",
+    groupItems: ["DSLR Camera", "Trash bags", "First aid kit", "Firewood or fire starter", "Board games / cards"],
+    items: {
+      adult: ["Warm layers", "Hiking boots", "Sunglasses", "Flashlight / headlamp", "Book / e-reader", "Blanket", "Toiletries bag"],
+      child: ["Warm layers", "Hiking shoes", "Sunglasses", "Games & activities", "Coloring / art supplies", "Flashlight", "Comfort toy or blanket"],
+      baby: ["High chair (portable)", "Diapers & wipes", "Pack-n-play", "Warm onesies & layers", "Baby blanket", "Pacifier"],
+      pet: ["Leash & collar", "Pet bed or blanket", "Waste bags", "Towel for muddy paws", "Favorite toy", "Pet first aid"],
+    },
+  },
+  sleepover: {
+    label: "Sleepover",
+    icon: "🛏️",
+    color: "#6C5CE7",
+    groupItems: ["DSLR Camera", "Movie picks", "Board games / card games", "Bluetooth speaker"],
+    items: {
+      adult: ["Sleeping bag or blanket & pillow", "Sunglasses", "Phone & charger", "Change of clothes for tomorrow", "Hairbrush / hair ties", "Card or board games", "Face mask / skincare", "Portable speaker", "Nail polish"],
+      child: ["Sleeping bag", "Pillow", "Sunglasses", "Change of clothes", "Flashlight", "Hairbrush / hair ties", "Journal or sketchbook", "Nail polish / friendship bracelets", "Slippers"],
+      baby: [],
+      pet: [],
+    },
+  },
+  other: {
+    label: "Other",
+    icon: "📋",
+    color: "#5A6B4F",
+    groupItems: ["DSLR Camera", "First aid kit", "Trash bags"],
+    items: {
+      adult: ["Cash & cards", "ID/passport", "Comfortable shoes", "Sunglasses", "Light jacket"],
+      child: ["Comfortable shoes", "Sunglasses", "Light jacket", "Entertainment"],
+      baby: ["Diapers & wipes", "Pacifier", "Change of clothes", "Blanket"],
+      pet: ["Leash & collar", "Waste bags"],
+    },
+  },
+};
+
+const WEATHER_ADDITIONS = {
+  hot: { label: "Hot Weather", icon: "☀️", items: ["Extra sunscreen", "Cooling towel", "Light breathable clothing", "Electrolyte packets", "Wide-brim hat"] },
+  cold: { label: "Cold Weather", icon: "❄️", items: ["Extra warm layers", "Thermal underwear", "Heavy socks", "Hand & toe warmers", "Lip balm"] },
+  rainy: { label: "Rainy", icon: "🌧️", items: ["Rain jacket", "Waterproof bag covers", "Umbrella", "Quick-dry towel", "Extra socks", "Waterproof shoes"] },
+  humid: { label: "Humid", icon: "🌫️", items: ["Anti-chafe balm", "Moisture-wicking clothing", "Dry bags for electronics", "Extra changes of clothes"] },
+};
+
+// Food & drink items per activity — always included as their own section
+const FOOD_ITEMS = {
+  camping: ["Cooler with ice", "Camp stove & fuel", "Cooking utensils", "Plates & bowls", "Cups & mugs", "Reusable water bottles", "Snacks & trail mix", "Marshmallows & s'mores supplies", "Coffee / tea", "Condiments (salt, pepper, ketchup)", "Aluminum foil", "Trash bags for food waste", "Can opener", "Cutting board & knife", "Paper towels / napkins", "Pet food & bowls", "Baby formula / baby food", "Baby bottles"],
+  roadtrip: ["Cooler bag", "Road snacks & drinks", "Reusable water bottles", "Sippy cups / kid drinks", "Napkins / paper towels", "Gum / mints", "Travel mugs", "Trash bag for wrappers", "Pet food & water bowls", "Baby formula / baby food", "Baby bottles"],
+  business: ["Reusable water bottle", "Snack bars", "Mints / gum", "Travel coffee mug"],
+  cabin: ["Groceries & meal plan", "Cooler / insulated bags", "Cooking oil & butter", "Salt, pepper & spices", "Coffee / tea", "Snacks", "Reusable water bottles", "Corkscrew / bottle opener", "Ziplock bags & containers", "Aluminum foil & plastic wrap", "Can opener", "Cutting board & knife", "Pots & pans", "Baking sheet", "Spatula & cooking spoon", "Dish soap & sponge", "Paper towels", "Baby food & snacks", "Baby bottles / sippy cups", "Baby-safe utensils & bowls", "Pet food & bowls"],
+  sleepover: ["Pizza / group snacks", "Popcorn & candy", "Drinks & juice boxes", "Breakfast supplies", "Snacks to share"],
+  other: ["Snacks & drinks", "Reusable water bottle", "Napkins", "Pet food & bowls", "Baby formula / baby food", "Baby bottles"],
+  _default: ["Snacks & drinks", "Reusable water bottles", "Napkins / paper towels"],
+};
+
+// Activity add-ons: optional extras that apply on top of any activity
+const ACTIVITY_ADDONS = {
+  swimming: {
+    label: "Swimming",
+    icon: "🏊",
+    items: {
+      adult: ["Swimsuit", "Swim towel", "Goggles", "Flip flops / sandals", "Sunscreen (waterproof)", "Change of clothes", "Wet bag for swimwear", "Hair tie / swim cap"],
+      child: ["Swimsuit", "Swim towel", "Goggles", "Water shoes", "Sunscreen (waterproof, kid-safe)", "Rash guard", "Change of clothes", "Floaties / life vest", "Wet bag for swimwear"],
+      baby: ["Swim diaper(s)", "Baby swimsuit", "Baby sunscreen (waterproof)", "Swim towel", "Change of clothes", "Baby float / swim seat"],
+      pet: ["Pet life vest", "Towel for pet", "Portable water bowl"],
+      group: ["Pool / lake toys", "Extra sunscreen station", "Shared cooler for poolside drinks"],
+    },
+  },
+};
+
+// Duration-based items: { minNights, items per person type }
+// Items are added when the trip meets or exceeds minNights
+const DURATION_ITEMS = [
+  {
+    minNights: 1,
+    label: "Overnight essentials",
+    items: {
+      adult: ["Pajamas", "Phone charger", "Medications (if needed)", "Toothbrush", "Toothpaste", "Vitamins"],
+      child: ["Pajamas", "Stuffed animal / comfort item", "Toothbrush", "Toothpaste", "Vitamins"],
+      baby: ["Night diapers", "Sleep sack / blanket", "White noise machine"],
+      pet: [],
+      group: ["Shampoo", "Conditioner", "Soap / body wash"],
+    },
+  },
+  {
+    minNights: 2,
+    label: "Multi-day basics",
+    items: {
+      adult: ["Deodorant", "Underwear ×{nights}", "Socks ×{nights}", "Outfits ×{nights}"],
+      child: ["Underwear ×{nights}", "Socks ×{nights}", "Outfits ×{nights}"],
+      baby: ["Diapers ×{nightsX8}", "Baby wipes (large pack)", "Extra onesies ×{nightsX2}", "Baby laundry bags"],
+      pet: ["Extra waste bags"],
+      group: [],
+    },
+  },
+  {
+    minNights: 4,
+    label: "Extended stay",
+    items: {
+      adult: ["Laundry bag", "Stain remover pen", "Extra shoes", "Razor / shaving kit", "Hairbrush / comb", "Skincare essentials"],
+      child: ["Laundry bag", "Extra shoes", "Hairbrush", "Activity books / toys"],
+      baby: ["Baby laundry detergent", "Extra pacifiers", "Portable high chair"],
+      pet: ["Extra pet treats", "Familiar blanket from home"],
+    },
+  },
+  {
+    minNights: 7,
+    label: "Week+ trip",
+    items: {
+      adult: ["Travel-size laundry detergent", "Sewing kit", "Extra charger cable", "Portable power bank", "Light jacket or layers for varied weather", "Dressy outfit (just in case)"],
+      child: ["Travel-size laundry soap", "Extra entertainment", "Comfort item from home"],
+      baby: ["Bulk diapers", "Portable bathtub"],
+      pet: ["Vet records / vaccination proof", "Familiar toy from home"],
+    },
+  },
+];
+
+const PERSON_TYPES = [
+  { value: "adult", label: "Adult", icon: "🧭" },
+  { value: "child", label: "Child", icon: "⭐" },
+  { value: "baby", label: "Baby", icon: "🍼" },
+  { value: "pet", label: "Pet", icon: "🐾" },
+];
+
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// Storage helpers
+const saveToStorage = async (key, value) => {
+  try {
+    await window.storage.set(key, JSON.stringify(value));
+  } catch (e) {
+    console.error("Storage save failed:", e);
+  }
+};
+
+const loadFromStorage = async (key) => {
+  try {
+    const result = await window.storage.get(key);
+    return result ? JSON.parse(result.value) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+function PackMate() {
+  const [screen, setScreen] = useState("home");
+  const [tripName, setTripName] = useState("");
+  const [nights, setNights] = useState(1);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [selectedWeather, setSelectedWeather] = useState([]);
+  const [selectedAddons, setSelectedAddons] = useState([]);
+  const [people, setPeople] = useState([]);
+  const [checklist, setChecklist] = useState(null);
+  const [savedTrips, setSavedTrips] = useState([]);
+  const [newItemText, setNewItemText] = useState("");
+  const [addingToPerson, setAddingToPerson] = useState(null);
+  const [animateIn, setAnimateIn] = useState(false);
+  const [personNameEdit, setPersonNameEdit] = useState(null);
+  const [customAddons, setCustomAddons] = useState({});
+  const [templateOverrides, setTemplateOverrides] = useState({});
+  const [customActivities, setCustomActivities] = useState({});
+  const [hiddenActivities, setHiddenActivities] = useState([]);
+  const [customIcons, setCustomIcons] = useState({});
+
+  // Template editor state
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  const [tplEditorCategory, setTplEditorCategory] = useState(null); // "camping", "duration_1", etc.
+  const [tplEditorTab, setTplEditorTab] = useState("adult");
+  const [tplEditorItems, setTplEditorItems] = useState({});
+  const [tplEditorGroupItems, setTplEditorGroupItems] = useState([]);
+  const [tplEditorNewItem, setTplEditorNewItem] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newActivityOpen, setNewActivityOpen] = useState(false);
+  const [newActivityName, setNewActivityName] = useState("");
+  const [newActivityIcon, setNewActivityIcon] = useState("🎯");
+  const [newActivityColor, setNewActivityColor] = useState("#5A6B4F");
+
+  const ACTIVITY_COLORS = ["#2D5016", "#7B2D8B", "#1A1A2E", "#8B5E3C", "#6C5CE7", "#5A6B4F", "#C4620E", "#1B7A8A", "#D4376E", "#2E86AB", "#A23B72", "#3C6E47"];
+  const ACTIVITY_ICON_OPTIONS = ["🏕️", "🎿", "🏖️", "🎶", "🚢", "✈️", "🏔️", "🎣", "🚴", "🧗", "🏄", "🧘", "🎯", "🏹", "📷", "🎨", "🎮", "🍳", "🔭", "🪂", "🛶", "🏇", "🎭", "⛷️", "🏜️", "🌋", "🗺️", "🎪"];
+
+  const saveCustomActivity = async () => {
+    if (!newActivityName.trim()) return;
+    const key = `custom_${newActivityName.trim().toLowerCase().replace(/\s+/g, "_")}_${generateId()}`;
+    const newAct = {
+      label: newActivityName.trim(),
+      icon: newActivityIcon,
+      color: newActivityColor,
+      groupItems: [],
+      items: { adult: [], child: [], baby: [], pet: [] },
+    };
+    const updated = { ...customActivities, [key]: newAct };
+    setCustomActivities(updated);
+    await saveToStorage("packmate-custom-activities", updated);
+    setNewActivityOpen(false);
+    setNewActivityName("");
+    setNewActivityIcon("🎯");
+    setNewActivityColor("#5A6B4F");
+    // Open editor for the new activity
+    openTemplateEditor(key);
+  };
+
+  const deleteCustomActivity = async (key) => {
+    const updated = { ...customActivities };
+    delete updated[key];
+    setCustomActivities(updated);
+    await saveToStorage("packmate-custom-activities", updated);
+    // Also clean up overrides
+    const updOv = { ...templateOverrides };
+    delete updOv[key];
+    setTemplateOverrides(updOv);
+    await saveToStorage("packmate-template-overrides", updOv);
+    setTplEditorCategory(null);
+  };
+
+  const toggleActivityVisibility = async (key) => {
+    const updated = hiddenActivities.includes(key)
+      ? hiddenActivities.filter((k) => k !== key)
+      : [...hiddenActivities, key];
+    setHiddenActivities(updated);
+    await saveToStorage("packmate-hidden-activities", updated);
+  };
+
+  // Custom addon builder state
+  const [addonBuilderOpen, setAddonBuilderOpen] = useState(false);
+  const [editingAddon, setEditingAddon] = useState(null); // null = new, key = editing existing
+  const [addonName, setAddonName] = useState("");
+  const [addonIcon, setAddonIcon] = useState("🎯");
+  const [addonItemsAdult, setAddonItemsAdult] = useState([]);
+  const [addonItemsChild, setAddonItemsChild] = useState([]);
+  const [addonItemsBaby, setAddonItemsBaby] = useState([]);
+  const [addonItemsPet, setAddonItemsPet] = useState([]);
+  const [addonItemsGroup, setAddonItemsGroup] = useState([]);
+  const [addonNewItem, setAddonNewItem] = useState("");
+  const [addonActiveTab, setAddonActiveTab] = useState("adult");
+
+  // Merge built-in and custom addons
+  const allAddons = useMemo(() => ({ ...ACTIVITY_ADDONS, ...customAddons }), [customAddons]);
+
+  // Merge built-in and custom activities
+  const allActivities = useMemo(() => ({ ...ACTIVITY_TEMPLATES, ...customActivities }), [customActivities]);
+  const visibleActivities = useMemo(() => {
+    const result = {};
+    Object.entries(allActivities).forEach(([key, val]) => {
+      if (!hiddenActivities.includes(key)) result[key] = val;
+    });
+    return result;
+  }, [allActivities, hiddenActivities]);
+
+  const ICON_OPTIONS = {
+    adult: ["🧭", "🗺️", "🎒", "🥾", "🏔️", "⚔️", "🛡️", "🔭", "🪖", "👤", "🧑", "🙂", "💪", "🦺"],
+    child: ["⭐", "🌟", "🔦", "🪁", "🧸", "🎨", "📚", "🦊", "🌈", "🪄", "👦", "👧", "🎈", "🏃"],
+    baby: ["🍼", "🧒", "👶", "🐣", "🌱", "🧷", "🎒", "🐤", "🌸", "🧦"],
+    pet: ["🐾", "🐕", "🐈", "🦮", "🐿️", "🦜", "🐢", "🐇", "🐴", "🐠"],
+    group: ["⛺", "🏕️", "🔥", "👥", "🤝", "🫂", "📦", "🧰", "🛖", "🏴"],
+    food: ["🍽️", "🍳", "🥘", "☕", "🧊", "🍕", "🥤", "🧺", "🍴", "🫕"],
+  };
+
+  const getIcon = useCallback((typeOrGroup) => {
+    return customIcons[typeOrGroup] || PERSON_TYPES.find((p) => p.value === typeOrGroup)?.icon || (typeOrGroup === "group" ? "⛺" : "📋");
+  }, [customIcons]);
+
+  // Effective person types with custom icons applied
+  const personTypes = useMemo(() =>
+    PERSON_TYPES.map((pt) => ({ ...pt, icon: customIcons[pt.value] || pt.icon })),
+    [customIcons]
+  );
+  const groupIcon = customIcons.group || "⛺";
+  const foodIcon = customIcons.food || "🍽️";
+
+  const setCustomIcon = async (typeOrGroup, icon) => {
+    const updated = { ...customIcons, [typeOrGroup]: icon };
+    setCustomIcons(updated);
+    await saveToStorage("packmate-custom-icons", updated);
+  };
+
+  const resetAllIcons = async () => {
+    setCustomIcons({});
+    await saveToStorage("packmate-custom-icons", {});
+  };
+
+  useEffect(() => {
+    (async () => {
+      const trips = await loadFromStorage("packmate-trips");
+      if (trips) setSavedTrips(trips);
+      const addons = await loadFromStorage("packmate-custom-addons");
+      if (addons) setCustomAddons(addons);
+      const tplOv = await loadFromStorage("packmate-template-overrides");
+      if (tplOv) setTemplateOverrides(tplOv);
+      const custAct = await loadFromStorage("packmate-custom-activities");
+      if (custAct) setCustomActivities(custAct);
+      const hidden = await loadFromStorage("packmate-hidden-activities");
+      if (hidden) setHiddenActivities(hidden);
+      const icons = await loadFromStorage("packmate-custom-icons");
+      if (icons) setCustomIcons(icons);
+    })();
+  }, []);
+
+  useEffect(() => {
+    setAnimateIn(false);
+    const t = setTimeout(() => setAnimateIn(true), 50);
+    return () => clearTimeout(t);
+  }, [screen]);
+
+  // Auto-save: persist checklist whenever it changes
+  useEffect(() => {
+    if (!checklist) return;
+    const doSave = async () => {
+      const existing = await loadFromStorage("packmate-trips");
+      const trips = existing || [];
+      const updated = trips.some((t) => t.id === checklist.id)
+        ? trips.map((t) => (t.id === checklist.id ? checklist : t))
+        : [...trips, checklist];
+      setSavedTrips(updated);
+      await saveToStorage("packmate-trips", updated);
+    };
+    doSave();
+  }, [checklist]);
+
+  const navigate = useCallback((s) => {
+    setAnimateIn(false);
+    setTimeout(() => setScreen(s), 150);
+  }, []);
+
+  const addPerson = (type) => {
+    const typeInfo = personTypes.find((p) => p.value === type);
+    const count = people.filter((p) => p.type === type).length;
+    setPeople([...people, { id: generateId(), type, name: `${typeInfo.label} ${count + 1}` }]);
+  };
+
+  const removePerson = (id) => setPeople(people.filter((p) => p.id !== id));
+
+  const generateChecklist = () => {
+    const template = getEffectiveActivityTemplate(selectedActivity);
+    const effDuration = getEffectiveDurationItems();
+    const sections = people.map((person) => {
+      const baseItems = (template.items[person.type] || []).map((item) => ({
+        id: generateId(), text: item, checked: false,
+      }));
+      const weatherItems = selectedWeather.flatMap((w) =>
+        WEATHER_ADDITIONS[w].items.map((item) => ({
+          id: generateId(), text: item, checked: false, weather: true,
+        }))
+      );
+      // Duration-based items
+      const durationItems = effDuration
+        .filter((d) => nights >= d.minNights)
+        .flatMap((d) =>
+          (d.items[person.type] || []).map((item) => {
+            const text = item
+              .replace(/\{nights\}/g, String(nights))
+              .replace(/\{nightsX2\}/g, String(nights * 2))
+              .replace(/\{nightsX8\}/g, String(nights * 8));
+            return { id: generateId(), text, checked: false, duration: true };
+          })
+        );
+      // Activity add-on items (e.g. swimming)
+      const addonItems = selectedAddons.flatMap((a) =>
+        (allAddons[a]?.items[person.type] || []).map((item) => ({
+          id: generateId(), text: item, checked: false, addon: a,
+        }))
+      );
+      return { person, items: [...baseItems, ...durationItems, ...addonItems, ...weatherItems] };
+    });
+    // Group items when 2+ people
+    const baseGroupItems = people.length >= 2
+      ? (template.groupItems || []).map((item) => ({
+          id: generateId(), text: item, checked: false,
+        }))
+      : [];
+    // Add addon group items (always, regardless of people count)
+    const addonGroupItems = selectedAddons.flatMap((a) =>
+      (allAddons[a]?.items?.group || []).map((item) => ({
+        id: generateId(), text: item, checked: false, addon: a,
+      }))
+    );
+    // Duration-based group items
+    const durationGroupItems = effDuration
+      .filter((d) => nights >= d.minNights)
+      .flatMap((d) =>
+        (d.items.group || []).map((item) => ({
+          id: generateId(), text: item, checked: false, duration: true,
+        }))
+      );
+    const groupItems = [...baseGroupItems, ...durationGroupItems, ...addonGroupItems];
+    // Food items — tagged with source activity, filtered by attending types
+    const foodSource = FOOD_ITEMS[selectedActivity] || FOOD_ITEMS._default;
+    const hasBaby = people.some((p) => p.type === "baby");
+    const hasPet = people.some((p) => p.type === "pet");
+    const babyKeywords = /baby|formula|sippy|onesie|infant|toddler/i;
+    const petKeywords = /\bpet\b|dog food|cat food/i;
+    const filteredFood = foodSource.filter((item) => {
+      if (babyKeywords.test(item) && !hasBaby) return false;
+      if (petKeywords.test(item) && !hasPet) return false;
+      return true;
+    });
+    const foodItems = filteredFood.map((item) => ({
+      id: generateId(), text: item, checked: false, activity: selectedActivity,
+    }));
+    const newChecklist = {
+      id: generateId(), name: tripName || `${template.label} Trip`,
+      activity: selectedActivity, weather: selectedWeather, nights, addons: selectedAddons,
+      groupItems, foodItems,
+      sections, createdAt: new Date().toISOString(),
+    };
+    setChecklist(newChecklist);
+    navigate("checklist");
+  };
+
+  const toggleItem = (sectionIdx, itemId) => {
+    setChecklist((prev) => {
+      const next = { ...prev, sections: prev.sections.map((s, i) =>
+        i === sectionIdx ? { ...s, items: s.items.map((it) =>
+          it.id === itemId ? { ...it, checked: !it.checked } : it
+        )} : s
+      )};
+      return next;
+    });
+  };
+
+  const deleteItem = (sectionIdx, itemId) => {
+    setChecklist((prev) => ({
+      ...prev, sections: prev.sections.map((s, i) =>
+        i === sectionIdx ? { ...s, items: s.items.filter((it) => it.id !== itemId) } : s
+      ),
+    }));
+  };
+
+  const addCustomItem = (sectionIdx) => {
+    if (!newItemText.trim()) return;
+    setChecklist((prev) => ({
+      ...prev, sections: prev.sections.map((s, i) =>
+        i === sectionIdx ? { ...s, items: [...s.items, { id: generateId(), text: newItemText.trim(), checked: false, custom: true }] } : s
+      ),
+    }));
+    setNewItemText("");
+    setAddingToPerson(null);
+  };
+
+  const toggleGroupItem = (itemId) => {
+    setChecklist((prev) => ({
+      ...prev, groupItems: (prev.groupItems || []).map((it) =>
+        it.id === itemId ? { ...it, checked: !it.checked } : it
+      ),
+    }));
+  };
+
+  const deleteGroupItem = (itemId) => {
+    setChecklist((prev) => ({
+      ...prev, groupItems: (prev.groupItems || []).filter((it) => it.id !== itemId),
+    }));
+  };
+
+  const toggleFoodItem = (itemId) => {
+    setChecklist((prev) => ({
+      ...prev, foodItems: (prev.foodItems || []).map((it) =>
+        it.id === itemId ? { ...it, checked: !it.checked } : it
+      ),
+    }));
+  };
+
+  const deleteFoodItem = (itemId) => {
+    setChecklist((prev) => ({
+      ...prev, foodItems: (prev.foodItems || []).filter((it) => it.id !== itemId),
+    }));
+  };
+
+  const [addingFoodItem, setAddingFoodItem] = useState(false);
+  const [newFoodItemText, setNewFoodItemText] = useState("");
+
+  const addCustomFoodItem = () => {
+    if (!newFoodItemText.trim()) return;
+    setChecklist((prev) => ({
+      ...prev, foodItems: [...(prev.foodItems || []), { id: generateId(), text: newFoodItemText.trim(), checked: false, custom: true }],
+    }));
+    setNewFoodItemText("");
+    setAddingFoodItem(false);
+  };
+
+  const [addingGroupItem, setAddingGroupItem] = useState(false);
+  const [newGroupItemText, setNewGroupItemText] = useState("");
+  const [groupByActivity, setGroupByActivity] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editPeople, setEditPeople] = useState([]);
+  const [editAddons, setEditAddons] = useState([]);
+  const [editNights, setEditNights] = useState(1);
+  const [editPersonNameEdit, setEditPersonNameEdit] = useState(null);
+  const [reusePickerOpen, setReusePickerOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const toggleGroupByActivity = () => {
+    const next = !groupByActivity;
+    setGroupByActivity(next);
+    setChecklist((prev) => prev ? { ...prev, groupByActivity: next } : prev);
+  };
+
+  const addCustomGroupItem = () => {
+    if (!newGroupItemText.trim()) return;
+    setChecklist((prev) => ({
+      ...prev, groupItems: [...(prev.groupItems || []), { id: generateId(), text: newGroupItemText.trim(), checked: false, custom: true }],
+    }));
+    setNewGroupItemText("");
+    setAddingGroupItem(false);
+  };
+
+  const saveTrip = async () => {
+    const updated = savedTrips.some((t) => t.id === checklist.id)
+      ? savedTrips.map((t) => (t.id === checklist.id ? checklist : t))
+      : [...savedTrips, checklist];
+    setSavedTrips(updated);
+    await saveToStorage("packmate-trips", updated);
+  };
+
+  const deleteTrip = async (id) => {
+    const updated = savedTrips.filter((t) => t.id !== id);
+    setSavedTrips(updated);
+    await saveToStorage("packmate-trips", updated);
+  };
+
+  const loadTrip = (trip) => {
+    // Backward compat: add food items if missing from older saved trips
+    if (!trip.foodItems) {
+      const foodSource = FOOD_ITEMS[trip.activity] || FOOD_ITEMS._default;
+      const hasBaby = (trip.sections || []).some((s) => s.person.type === "baby");
+      const hasPet = (trip.sections || []).some((s) => s.person.type === "pet");
+      const babyKeywords = /baby|formula|sippy|onesie|infant|toddler/i;
+      const petKeywords = /\bpet\b|dog food|cat food/i;
+      const filtered = foodSource.filter((item) => {
+        if (babyKeywords.test(item) && !hasBaby) return false;
+        if (petKeywords.test(item) && !hasPet) return false;
+        return true;
+      });
+      trip = { ...trip, foodItems: filtered.map((item) => ({ id: generateId(), text: item, checked: false, activity: trip.activity })) };
+    }
+    setChecklist({ ...trip });
+    setGroupByActivity(trip.groupByActivity || false);
+    navigate("checklist");
+  };
+
+  const reuseTrip = (trip) => {
+    // Deep clone the trip, reset all checked states, assign new IDs
+    const newSections = trip.sections.map((section) => ({
+      person: { ...section.person, id: generateId() },
+      items: section.items.map((item) => ({
+        ...item, id: generateId(), checked: false,
+      })),
+    }));
+    const newGroupItems = (trip.groupItems || []).map((item) => ({
+      ...item, id: generateId(), checked: false,
+    }));
+    const newFoodItems = (trip.foodItems || []).map((item) => ({
+      ...item, id: generateId(), checked: false,
+    }));
+    const newChecklist = {
+      ...trip,
+      id: generateId(),
+      name: trip.name,
+      sections: newSections,
+      groupItems: newGroupItems,
+      foodItems: newFoodItems,
+      groupByActivity: trip.groupByActivity || false,
+      createdAt: new Date().toISOString(),
+    };
+    setChecklist(newChecklist);
+    setGroupByActivity(newChecklist.groupByActivity);
+    setReusePickerOpen(false);
+    navigate("checklist");
+  };
+
+  const resetForNew = () => {
+    setTripName("");
+    setNights(1);
+    setSelectedActivity(null);
+    setSelectedWeather([]);
+    setSelectedAddons([]);
+    setPeople([]);
+    setChecklist(null);
+    navigate("home");
+  };
+
+  const ADDON_ICONS = ["🎯", "🏹", "🎣", "🚴", "🧗", "🛶", "🎨", "📷", "🎮", "🎸", "⚽", "🏓", "🎿", "🏄", "🧘", "🪂", "🏇", "🎭", "🔭", "🍳"];
+
+  const openAddonBuilder = (existingKey = null) => {
+    if (existingKey && allAddons[existingKey]) {
+      const addon = allAddons[existingKey];
+      setEditingAddon(existingKey);
+      setAddonName(addon.label);
+      setAddonIcon(addon.icon);
+      setAddonItemsAdult(addon.items?.adult || []);
+      setAddonItemsChild(addon.items?.child || []);
+      setAddonItemsBaby(addon.items?.baby || []);
+      setAddonItemsPet(addon.items?.pet || []);
+      setAddonItemsGroup(addon.items?.group || []);
+    } else {
+      setEditingAddon(null);
+      setAddonName("");
+      setAddonIcon("🎯");
+      setAddonItemsAdult([]);
+      setAddonItemsChild([]);
+      setAddonItemsBaby([]);
+      setAddonItemsPet([]);
+      setAddonItemsGroup([]);
+    }
+    setAddonNewItem("");
+    setAddonActiveTab("adult");
+    setAddonBuilderOpen(true);
+  };
+
+  const closeAddonBuilder = () => {
+    setAddonBuilderOpen(false);
+    setEditingAddon(null);
+  };
+
+  const getAddonItemsForTab = () => {
+    switch (addonActiveTab) {
+      case "adult": return addonItemsAdult;
+      case "child": return addonItemsChild;
+      case "baby": return addonItemsBaby;
+      case "pet": return addonItemsPet;
+      case "group": return addonItemsGroup;
+      default: return [];
+    }
+  };
+
+  const setAddonItemsForTab = (items) => {
+    switch (addonActiveTab) {
+      case "adult": setAddonItemsAdult(items); break;
+      case "child": setAddonItemsChild(items); break;
+      case "baby": setAddonItemsBaby(items); break;
+      case "pet": setAddonItemsPet(items); break;
+      case "group": setAddonItemsGroup(items); break;
+    }
+  };
+
+  const addAddonItem = () => {
+    if (!addonNewItem.trim()) return;
+    setAddonItemsForTab([...getAddonItemsForTab(), addonNewItem.trim()]);
+    setAddonNewItem("");
+  };
+
+  const removeAddonItem = (idx) => {
+    setAddonItemsForTab(getAddonItemsForTab().filter((_, i) => i !== idx));
+  };
+
+  const saveCustomAddon = async () => {
+    if (!addonName.trim()) return;
+    const key = editingAddon || `custom_${addonName.trim().toLowerCase().replace(/\s+/g, "_")}_${generateId()}`;
+    const updated = {
+      ...customAddons,
+      [key]: {
+        label: addonName.trim(),
+        icon: addonIcon,
+        custom: true,
+        items: {
+          adult: addonItemsAdult,
+          child: addonItemsChild,
+          baby: addonItemsBaby,
+          pet: addonItemsPet,
+          group: addonItemsGroup,
+        },
+      },
+    };
+    setCustomAddons(updated);
+    await saveToStorage("packmate-custom-addons", updated);
+    closeAddonBuilder();
+  };
+
+  const deleteCustomAddon = async (key) => {
+    const updated = { ...customAddons };
+    delete updated[key];
+    setCustomAddons(updated);
+    setSelectedAddons(selectedAddons.filter((a) => a !== key));
+    await saveToStorage("packmate-custom-addons", updated);
+  };
+
+  // Effective templates: merge defaults with user overrides
+  const getEffectiveActivityTemplate = useCallback((activityKey) => {
+    const base = allActivities[activityKey];
+    if (!base) return ACTIVITY_TEMPLATES[activityKey];
+    const override = templateOverrides[activityKey];
+    if (!override) return base;
+    return {
+      ...base,
+      items: override.items || base.items,
+      groupItems: override.groupItems || base.groupItems,
+    };
+  }, [templateOverrides, allActivities]);
+
+  const getEffectiveDurationItems = useCallback(() => {
+    return DURATION_ITEMS.map((d, idx) => {
+      const key = `duration_${d.minNights}`;
+      const override = templateOverrides[key];
+      if (!override) return d;
+      return { ...d, items: override.items || d.items };
+    });
+  }, [templateOverrides]);
+
+  // Build the list of editable categories for the template editor
+  const editableCategories = useMemo(() => {
+    const cats = [];
+    Object.entries(allActivities).forEach(([key, tmpl]) => {
+      cats.push({ key, label: tmpl.label, icon: tmpl.icon, type: "activity", isCustom: !!customActivities[key] });
+    });
+    DURATION_ITEMS.forEach((d) => {
+      cats.push({ key: `duration_${d.minNights}`, label: d.label, icon: "🌄", type: "duration", minNights: d.minNights });
+    });
+    return cats;
+  }, [allActivities, customActivities]);
+
+  const openTemplateEditor = (categoryKey) => {
+    const cat = editableCategories.find((c) => c.key === categoryKey);
+    if (!cat) return;
+    let items, groupItems;
+    if (cat.type === "activity") {
+      const eff = getEffectiveActivityTemplate(cat.key);
+      items = { adult: [...(eff.items.adult || [])], child: [...(eff.items.child || [])], baby: [...(eff.items.baby || [])], pet: [...(eff.items.pet || [])] };
+      groupItems = [...(eff.groupItems || [])];
+    } else {
+      const effDuration = getEffectiveDurationItems();
+      const d = effDuration.find((dd) => `duration_${dd.minNights}` === categoryKey);
+      items = { adult: [...(d.items.adult || [])], child: [...(d.items.child || [])], baby: [...(d.items.baby || [])], pet: [...(d.items.pet || [])], group: [...(d.items.group || [])] };
+      groupItems = [];
+    }
+    setTplEditorCategory(categoryKey);
+    setTplEditorItems(items);
+    setTplEditorGroupItems(groupItems);
+    setTplEditorTab("adult");
+    setTplEditorNewItem("");
+    setTemplateEditorOpen(true);
+  };
+
+  const getTplEditorCurrentList = () => {
+    if (tplEditorTab === "group") {
+      const cat = editableCategories.find((c) => c.key === tplEditorCategory);
+      if (cat?.type === "activity") return tplEditorGroupItems;
+      return tplEditorItems.group || [];
+    }
+    return tplEditorItems[tplEditorTab] || [];
+  };
+
+  const setTplEditorCurrentList = (list) => {
+    if (tplEditorTab === "group") {
+      const cat = editableCategories.find((c) => c.key === tplEditorCategory);
+      if (cat?.type === "activity") {
+        setTplEditorGroupItems(list);
+      } else {
+        setTplEditorItems((prev) => ({ ...prev, group: list }));
+      }
+      return;
+    }
+    setTplEditorItems((prev) => ({ ...prev, [tplEditorTab]: list }));
+  };
+
+  const addTplEditorItem = () => {
+    if (!tplEditorNewItem.trim()) return;
+    setTplEditorCurrentList([...getTplEditorCurrentList(), tplEditorNewItem.trim()]);
+    setTplEditorNewItem("");
+  };
+
+  const removeTplEditorItem = (idx) => {
+    setTplEditorCurrentList(getTplEditorCurrentList().filter((_, i) => i !== idx));
+  };
+
+  const saveTplEditorOverride = async () => {
+    const cat = editableCategories.find((c) => c.key === tplEditorCategory);
+    if (cat.isCustom) {
+      // For custom activities, save directly to the activity definition
+      const existing = customActivities[tplEditorCategory];
+      const updated = {
+        ...customActivities,
+        [tplEditorCategory]: {
+          ...existing,
+          items: { ...tplEditorItems },
+          groupItems: [...tplEditorGroupItems],
+        },
+      };
+      setCustomActivities(updated);
+      await saveToStorage("packmate-custom-activities", updated);
+    } else {
+      let override;
+      if (cat.type === "activity") {
+        override = { items: { ...tplEditorItems }, groupItems: [...tplEditorGroupItems] };
+      } else {
+        override = { items: { ...tplEditorItems } };
+      }
+      const updated = { ...templateOverrides, [tplEditorCategory]: override };
+      setTemplateOverrides(updated);
+      await saveToStorage("packmate-template-overrides", updated);
+    }
+    setTemplateEditorOpen(false);
+    setNewActivityOpen(false);
+  };
+
+  const resetTplEditorToDefaults = async () => {
+    const updated = { ...templateOverrides };
+    delete updated[tplEditorCategory];
+    setTemplateOverrides(updated);
+    await saveToStorage("packmate-template-overrides", updated);
+    openTemplateEditor(tplEditorCategory);
+  };
+
+  const clearAllTrips = async () => {
+    setSavedTrips([]);
+    await saveToStorage("packmate-trips", []);
+  };
+
+  const clearAllCustomAddons = async () => {
+    setCustomAddons({});
+    setSelectedAddons([]);
+    await saveToStorage("packmate-custom-addons", {});
+  };
+
+  const resetAllTemplateOverrides = async () => {
+    setTemplateOverrides({});
+    setCustomActivities({});
+    setHiddenActivities([]);
+    setCustomIcons({});
+    await saveToStorage("packmate-template-overrides", {});
+    await saveToStorage("packmate-custom-activities", {});
+    await saveToStorage("packmate-hidden-activities", []);
+    await saveToStorage("packmate-custom-icons", {});
+  };
+
+  const [settingsConfirm, setSettingsConfirm] = useState(null);
+  const [addonsExpanded, setAddonsExpanded] = useState(false);
+  const [iconsExpanded, setIconsExpanded] = useState(false);
+
+  const executeSettingsAction = async (action) => {
+    if (action === "trips") await clearAllTrips();
+    if (action === "addons") { await clearAllCustomAddons(); setAddonsExpanded(false); }
+    if (action === "templates") await resetAllTemplateOverrides();
+    if (action === "all") {
+      await clearAllTrips();
+      await clearAllCustomAddons();
+      await resetAllTemplateOverrides();
+      setAddonsExpanded(false);
+    }
+    setSettingsConfirm(null);
+  };
+
+  const deleteOneCustomAddon = async (key) => {
+    const updated = { ...customAddons };
+    delete updated[key];
+    setCustomAddons(updated);
+    setSelectedAddons((prev) => prev.filter((a) => a !== key));
+    await saveToStorage("packmate-custom-addons", updated);
+  };
+
+  const openEditMode = () => {
+    if (!checklist) return;
+    setEditPeople(checklist.sections.map((s) => ({ ...s.person })));
+    setEditAddons([...(checklist.addons || [])]);
+    setEditNights(checklist.nights || 1);
+    setEditPersonNameEdit(null);
+    setEditMode(true);
+  };
+
+  const closeEditMode = () => {
+    setEditMode(false);
+    setEditPersonNameEdit(null);
+  };
+
+  const addEditPerson = (type) => {
+    const typeInfo = personTypes.find((p) => p.value === type);
+    const count = editPeople.filter((p) => p.type === type).length;
+    setEditPeople([...editPeople, { id: generateId(), type, name: `${typeInfo.label} ${count + 1}` }]);
+  };
+
+  const removeEditPerson = (id) => setEditPeople(editPeople.filter((p) => p.id !== id));
+
+  const applyEdits = () => {
+    if (!checklist) return;
+    const template = getEffectiveActivityTemplate(checklist.activity);
+    const effDuration = getEffectiveDurationItems();
+    const prevAddons = new Set(checklist.addons || []);
+    const nextAddons = new Set(editAddons);
+    const addedAddons = editAddons.filter((a) => !prevAddons.has(a));
+    const removedAddons = (checklist.addons || []).filter((a) => !nextAddons.has(a));
+    const nightsChanged = editNights !== (checklist.nights || 1);
+
+    // Helper: generate duration items for a person type at given nights
+    const makeDurationItems = (personType, nts) => effDuration
+      .filter((d) => nts >= d.minNights)
+      .flatMap((d) =>
+        (d.items[personType] || []).map((item) => {
+          const text = item
+            .replace(/\{nights\}/g, String(nts))
+            .replace(/\{nightsX2\}/g, String(nts * 2))
+            .replace(/\{nightsX8\}/g, String(nts * 8));
+          return { id: generateId(), text, checked: false, duration: true };
+        })
+      );
+
+    const updatedSections = editPeople.map((person) => {
+      const existing = checklist.sections.find((s) => s.person.id === person.id);
+      if (existing) {
+        // Keep existing items, remove items from removed addons
+        let items = existing.items.filter((i) => !i.addon || !removedAddons.includes(i.addon));
+        // If nights changed, remove old duration items and regenerate
+        if (nightsChanged) {
+          items = items.filter((i) => !i.duration);
+          items = [...items, ...makeDurationItems(person.type, editNights)];
+        }
+        // Add new addon items
+        const newAddonItems = addedAddons.flatMap((a) =>
+          (allAddons[a]?.items[person.type] || []).map((item) => ({
+            id: generateId(), text: item, checked: false, addon: a,
+          }))
+        );
+        items = [...items, ...newAddonItems];
+        return { person: { ...person }, items };
+      } else {
+        // New person — generate full item list
+        const baseItems = (template.items[person.type] || []).map((item) => ({
+          id: generateId(), text: item, checked: false,
+        }));
+        const weatherItems = (checklist.weather || []).flatMap((w) =>
+          WEATHER_ADDITIONS[w].items.map((item) => ({
+            id: generateId(), text: item, checked: false, weather: true,
+          }))
+        );
+        const durationItems = makeDurationItems(person.type, editNights);
+        const addonItems = editAddons.flatMap((a) =>
+          (allAddons[a]?.items[person.type] || []).map((item) => ({
+            id: generateId(), text: item, checked: false, addon: a,
+          }))
+        );
+        return { person: { ...person }, items: [...baseItems, ...durationItems, ...addonItems, ...weatherItems] };
+      }
+    });
+
+    // Update group items
+    let updatedGroupItems = (checklist.groupItems || []).filter((i) => !i.addon || !removedAddons.includes(i.addon));
+
+    // If nights changed, regenerate duration group items
+    if (nightsChanged) {
+      updatedGroupItems = updatedGroupItems.filter((i) => !i.duration);
+      const durationGroupItems = effDuration
+        .filter((d) => editNights >= d.minNights)
+        .flatMap((d) =>
+          (d.items.group || []).map((item) => ({
+            id: generateId(), text: item, checked: false, duration: true,
+          }))
+        );
+      updatedGroupItems = [...updatedGroupItems, ...durationGroupItems];
+    }
+
+    const newAddonGroupItems = addedAddons.flatMap((a) =>
+      (allAddons[a]?.items?.group || []).map((item) => ({
+        id: generateId(), text: item, checked: false, addon: a,
+      }))
+    );
+    updatedGroupItems = [...updatedGroupItems, ...newAddonGroupItems];
+
+    const hadMultiple = checklist.sections.length >= 2;
+    const hasMultiple = editPeople.length >= 2;
+    if (!hadMultiple && hasMultiple) {
+      const baseGroupItems = (template.groupItems || []).map((item) => ({
+        id: generateId(), text: item, checked: false,
+      }));
+      updatedGroupItems = [...baseGroupItems, ...updatedGroupItems];
+    }
+    if (hadMultiple && !hasMultiple) {
+      updatedGroupItems = updatedGroupItems.filter((i) => i.addon);
+    }
+
+    // Update food items: add/remove baby and pet food items based on party changes
+    const hadBaby = checklist.sections.some((s) => s.person.type === "baby");
+    const hasBaby = editPeople.some((p) => p.type === "baby");
+    const hadPet = checklist.sections.some((s) => s.person.type === "pet");
+    const hasPet = editPeople.some((p) => p.type === "pet");
+    const babyKw = /baby|formula|sippy|onesie|infant|toddler/i;
+    const petKw = /\bpet\b|dog food|cat food/i;
+    let updatedFoodItems = [...(checklist.foodItems || [])];
+    // Remove baby food items if baby removed
+    if (hadBaby && !hasBaby) {
+      updatedFoodItems = updatedFoodItems.filter((i) => !babyKw.test(i.text));
+    }
+    // Remove pet food items if pet removed
+    if (hadPet && !hasPet) {
+      updatedFoodItems = updatedFoodItems.filter((i) => !petKw.test(i.text));
+    }
+    // Add baby food items if baby added
+    if (!hadBaby && hasBaby) {
+      const foodSource = FOOD_ITEMS[checklist.activity] || FOOD_ITEMS._default;
+      const babyFoodItems = foodSource.filter((item) => babyKw.test(item)).map((item) => ({
+        id: generateId(), text: item, checked: false, activity: checklist.activity,
+      }));
+      updatedFoodItems = [...updatedFoodItems, ...babyFoodItems];
+    }
+    // Add pet food items if pet added
+    if (!hadPet && hasPet) {
+      const foodSource = FOOD_ITEMS[checklist.activity] || FOOD_ITEMS._default;
+      const petFoodItems = foodSource.filter((item) => petKw.test(item)).map((item) => ({
+        id: generateId(), text: item, checked: false, activity: checklist.activity,
+      }));
+      updatedFoodItems = [...updatedFoodItems, ...petFoodItems];
+    }
+
+    setChecklist((prev) => ({
+      ...prev,
+      nights: editNights,
+      addons: editAddons,
+      sections: updatedSections,
+      groupItems: updatedGroupItems,
+      foodItems: updatedFoodItems,
+    }));
+    closeEditMode();
+  };
+
+  const progress = useMemo(() => {
+    if (!checklist) return { total: 0, checked: 0, pct: 0 };
+    const sectionTotal = checklist.sections.reduce((a, s) => a + s.items.length, 0);
+    const sectionChecked = checklist.sections.reduce((a, s) => a + s.items.filter((i) => i.checked).length, 0);
+    const groupTotal = (checklist.groupItems || []).length;
+    const groupChecked = (checklist.groupItems || []).filter((i) => i.checked).length;
+    const foodTotal = (checklist.foodItems || []).length;
+    const foodChecked = (checklist.foodItems || []).filter((i) => i.checked).length;
+    const total = sectionTotal + groupTotal + foodTotal;
+    const checked = sectionChecked + groupChecked + foodChecked;
+    return { total, checked, pct: total ? Math.round((checked / total) * 100) : 0 };
+  }, [checklist]);
+
+  const sectionProgress = useCallback((section) => {
+    const total = section.items.length;
+    const checked = section.items.filter((i) => i.checked).length;
+    return { total, checked, pct: total ? Math.round((checked / total) * 100) : 0 };
+  }, []);
+
+  const wrapStyle = {
+    minHeight: "100vh",
+    background: `
+      radial-gradient(ellipse at 20% 50%, rgba(139,90,43,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(101,67,33,0.06) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 100%, rgba(160,120,60,0.1) 0%, transparent 50%),
+      linear-gradient(170deg, #F5E6C8 0%, #EDD5A8 25%, #E8CFA0 50%, #E2C490 75%, #D9B87A 100%)
+    `,
+    fontFamily: "'Crimson Pro', 'Georgia', serif",
+    color: "#3B2510",
+    position: "relative",
+    overflow: "hidden",
+  };
+
+  // Parchment texture overlay
+  const parchmentOverlay = {
+    position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 0.4,
+    backgroundImage: `
+      repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(139,90,43,0.03) 28px, rgba(139,90,43,0.03) 29px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(101,67,33,0.02) 40px, rgba(101,67,33,0.02) 41px)
+    `,
+  };
+
+  // Old globe / cartographic SVG overlay
+  const globeOverlaySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200">
+    <defs>
+      <style>
+        .line { fill: none; stroke: rgba(139,90,43,0.07); stroke-width: 0.8; }
+        .line-bold { fill: none; stroke: rgba(139,90,43,0.09); stroke-width: 1.2; }
+        .line-thin { fill: none; stroke: rgba(139,90,43,0.05); stroke-width: 0.5; }
+        .compass { fill: none; stroke: rgba(139,90,43,0.1); stroke-width: 1; }
+        .compass-bold { fill: none; stroke: rgba(139,90,43,0.12); stroke-width: 1.5; }
+        .dot { fill: rgba(139,90,43,0.06); }
+        .text { font-family: serif; font-size: 8px; fill: rgba(139,90,43,0.06); }
+      </style>
+    </defs>
+    <!-- Large globe upper right -->
+    <circle cx="680" cy="180" r="160" class="line-bold"/>
+    <circle cx="680" cy="180" r="120" class="line"/>
+    <circle cx="680" cy="180" r="80" class="line-thin"/>
+    <circle cx="680" cy="180" r="40" class="line-thin"/>
+    <!-- Globe latitude lines -->
+    <ellipse cx="680" cy="180" rx="160" ry="55" class="line"/>
+    <ellipse cx="680" cy="180" rx="160" ry="110" class="line-thin"/>
+    <ellipse cx="680" cy="180" rx="55" ry="160" class="line"/>
+    <ellipse cx="680" cy="180" rx="110" ry="160" class="line-thin"/>
+    <!-- Globe axis -->
+    <line x1="680" y1="15" x2="680" y2="345" class="line"/>
+    <line x1="515" y1="180" x2="845" y2="180" class="line"/>
+    <!-- Tick marks on globe equator -->
+    <line x1="520" y1="175" x2="520" y2="185" class="line-thin"/>
+    <line x1="560" y1="175" x2="560" y2="185" class="line-thin"/>
+    <line x1="600" y1="175" x2="600" y2="185" class="line-thin"/>
+    <line x1="640" y1="175" x2="640" y2="185" class="line-thin"/>
+    <line x1="720" y1="175" x2="720" y2="185" class="line-thin"/>
+    <line x1="760" y1="175" x2="760" y2="185" class="line-thin"/>
+    <line x1="800" y1="175" x2="800" y2="185" class="line-thin"/>
+    <line x1="840" y1="175" x2="840" y2="185" class="line-thin"/>
+    <!-- Degree labels -->
+    <text x="510" y="200" class="text">30°</text>
+    <text x="550" y="200" class="text">60°</text>
+    <text x="670" y="15" class="text">N</text>
+    <text x="670" y="355" class="text">S</text>
+
+    <!-- Compass rose bottom left -->
+    <circle cx="100" cy="950" r="70" class="compass"/>
+    <circle cx="100" cy="950" r="50" class="line"/>
+    <circle cx="100" cy="950" r="5" class="compass-bold"/>
+    <!-- Cardinal points -->
+    <line x1="100" y1="875" x2="100" y2="1025" class="compass-bold"/>
+    <line x1="25" y1="950" x2="175" y2="950" class="compass-bold"/>
+    <!-- Ordinal points -->
+    <line x1="50" y1="900" x2="150" y2="1000" class="compass"/>
+    <line x1="150" y1="900" x2="50" y2="1000" class="compass"/>
+    <!-- Diamond points on compass -->
+    <polygon points="100,880 108,940 100,945 92,940" class="compass" style="fill:rgba(139,90,43,0.04)"/>
+    <polygon points="100,1020 108,960 100,955 92,960" class="compass"/>
+    <polygon points="30,950 90,942 95,950 90,958" class="compass"/>
+    <polygon points="170,950 110,942 105,950 110,958" class="compass"/>
+    <!-- Compass labels -->
+    <text x="95" y="872" class="text" style="font-size:10px; fill:rgba(139,90,43,0.08)">N</text>
+    <text x="96" y="1038" class="text" style="font-size:10px; fill:rgba(139,90,43,0.08)">S</text>
+    <text x="14" y="954" class="text" style="font-size:10px; fill:rgba(139,90,43,0.08)">W</text>
+    <text x="176" y="954" class="text" style="font-size:10px; fill:rgba(139,90,43,0.08)">E</text>
+
+    <!-- Small globe bottom right -->
+    <circle cx="700" cy="1050" r="90" class="line"/>
+    <circle cx="700" cy="1050" r="60" class="line-thin"/>
+    <ellipse cx="700" cy="1050" rx="90" ry="30" class="line-thin"/>
+    <ellipse cx="700" cy="1050" rx="30" ry="90" class="line-thin"/>
+    <line x1="700" y1="955" x2="700" y2="1145" class="line-thin"/>
+    <line x1="605" y1="1050" x2="795" y2="1050" class="line-thin"/>
+
+    <!-- Wandering navigation lines across the page -->
+    <path d="M 0,400 Q 200,380 400,420 T 800,400" class="line-thin"/>
+    <path d="M 0,600 Q 300,580 500,620 T 800,590" class="line-thin"/>
+    <path d="M 0,800 Q 250,790 450,810 T 800,795" class="line-thin"/>
+
+    <!-- Scattered coordinate dots -->
+    <circle cx="150" cy="300" r="2.5" class="dot"/>
+    <circle cx="350" cy="450" r="2" class="dot"/>
+    <circle cx="550" cy="350" r="2.5" class="dot"/>
+    <circle cx="250" cy="700" r="2" class="dot"/>
+    <circle cx="450" cy="850" r="2.5" class="dot"/>
+    <circle cx="650" cy="750" r="2" class="dot"/>
+    <circle cx="100" cy="550" r="2" class="dot"/>
+    <circle cx="700" cy="500" r="2" class="dot"/>
+
+    <!-- Small x marks like map annotations -->
+    <g transform="translate(150,300)" class="line-thin"><line x1="-4" y1="-4" x2="4" y2="4"/><line x1="4" y1="-4" x2="-4" y2="4"/></g>
+    <g transform="translate(550,350)" class="line-thin"><line x1="-4" y1="-4" x2="4" y2="4"/><line x1="4" y1="-4" x2="-4" y2="4"/></g>
+    <g transform="translate(450,850)" class="line-thin"><line x1="-4" y1="-4" x2="4" y2="4"/><line x1="4" y1="-4" x2="-4" y2="4"/></g>
+
+    <!-- Subtle coordinate labels -->
+    <text x="155" y="310" class="text">42°N 12°E</text>
+    <text x="555" y="360" class="text">28°N 77°W</text>
+    <text x="455" y="860" class="text">35°S 149°E</text>
+    <text x="255" y="710" class="text">51°N 0°W</text>
+
+    <!-- Decorative rhumb lines from top-left -->
+    <line x1="0" y1="0" x2="400" y2="600" class="line-thin"/>
+    <line x1="0" y1="0" x2="600" y2="400" class="line-thin"/>
+    <line x1="0" y1="0" x2="200" y2="600" class="line-thin"/>
+  </svg>`)}`;
+
+  const globeOverlay = {
+    position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+    backgroundImage: `url("${globeOverlaySvg}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
+
+  const containerStyle = {
+    maxWidth: 640,
+    margin: "0 auto",
+    padding: "20px 16px 100px",
+    position: "relative",
+    zIndex: 1,
+    opacity: animateIn ? 1 : 0,
+    transform: animateIn ? "translateY(0)" : "translateY(12px)",
+    transition: "all 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
+  };
+
+  // --- PRINT CHECKLIST ---
+  const printChecklist = () => {
+    if (!checklist) return;
+    const tmpl = allActivities[checklist.activity] || ACTIVITY_TEMPLATES[checklist.activity];
+    const nightsLabel = `${checklist.nights} ${checklist.nights === 1 ? "night" : "nights"}`;
+    const weatherLabels = (checklist.weather || []).map((w) => WEATHER_ADDITIONS[w]?.label || w).join(", ");
+
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${checklist.name} — PackMate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Crimson+Pro:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Crimson Pro', Georgia, serif; color: #3B2510; padding: 32px; max-width: 700px; margin: 0 auto; }
+      h1 { font-family: 'Caveat', cursive; font-size: 36px; font-weight: 700; margin-bottom: 4px; }
+      h2 { font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; margin: 20px 0 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(139,90,43,0.15); }
+      .meta { font-family: 'Crimson Pro', serif; font-size: 14px; color: #8B5A2B; font-style: italic; margin-bottom: 20px; }
+      .divider { width: 60px; height: 2px; background: linear-gradient(90deg, rgba(139,90,43,0.4), transparent); margin: 8px 0 16px; }
+      .item { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 15px; page-break-inside: avoid; }
+      .checkbox { width: 16px; height: 16px; border: 1.5px solid rgba(139,90,43,0.3); border-radius: 3px; flex-shrink: 0; margin-top: 3px; }
+      .checkbox.checked { background: rgba(139,90,43,0.15); position: relative; }
+      .checkbox.checked::after { content: '\\2713'; position: absolute; top: -2px; left: 2px; font-size: 12px; color: #5C3D1E; }
+      .checked-text { text-decoration: line-through; opacity: 0.5; }
+      .section { margin-bottom: 16px; page-break-inside: avoid; }
+      .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid rgba(139,90,43,0.1); font-family: 'Crimson Pro', serif; font-size: 12px; color: #8B5A2B; font-style: italic; text-align: center; }
+      @media print {
+        body { padding: 16px; }
+        .no-print { display: none; }
+      }
+    </style></head><body>`;
+
+    html += `<h1>${tmpl.icon} ${checklist.name}</h1>`;
+    html += `<div class="divider"></div>`;
+    html += `<div class="meta">🌄 ${nightsLabel}${weatherLabels ? " · " + weatherLabels : ""} · ${checklist.sections.length} ${checklist.sections.length === 1 ? "traveler" : "travelers"}</div>`;
+
+    checklist.sections.forEach((section) => {
+      const pt = personTypes.find((p) => p.value === section.person.type);
+      html += `<div class="section"><h2>${pt?.icon || ""} ${section.person.name}</h2>`;
+      section.items.forEach((item) => {
+        const cls = item.checked ? "checked" : "";
+        const textCls = item.checked ? "checked-text" : "";
+        html += `<div class="item"><div class="checkbox ${cls}"></div><span class="${textCls}">${item.text}</span></div>`;
+      });
+      html += `</div>`;
+    });
+
+    if (checklist.foodItems && checklist.foodItems.length > 0) {
+      html += `<div class="section"><h2>${foodIcon} Food & Drinks</h2>`;
+      checklist.foodItems.forEach((item) => {
+        const cls = item.checked ? "checked" : "";
+        const textCls = item.checked ? "checked-text" : "";
+        html += `<div class="item"><div class="checkbox ${cls}"></div><span class="${textCls}">${item.text}</span></div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (checklist.groupItems && checklist.groupItems.length > 0) {
+      html += `<div class="section"><h2>${groupIcon} Shared Gear</h2>`;
+      checklist.groupItems.forEach((item) => {
+        const cls = item.checked ? "checked" : "";
+        const textCls = item.checked ? "checked-text" : "";
+        html += `<div class="item"><div class="checkbox ${cls}"></div><span class="${textCls}">${item.text}</span></div>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `<div class="footer">Packed with 🧭 PackMate</div>`;
+    html += `<script>window.onload = () => window.print();<\/script>`;
+    html += `</body></html>`;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
+
+  // --- HOME SCREEN ---
+  if (screen === "home") {
+    return (
+      <div style={wrapStyle}>
+        <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Crimson+Pro:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+        <div style={{ position: "absolute", top: -60, right: -60, width: 250, height: 250, borderRadius: "50%", border: "1px solid rgba(139,90,43,0.08)", opacity: 0.5 }} />
+        <div style={{ position: "absolute", top: -30, right: -30, width: 180, height: 180, borderRadius: "50%", border: "1px solid rgba(139,90,43,0.06)", opacity: 0.5 }} />
+        <div style={{ position: "absolute", bottom: -40, left: -40, width: 200, height: 200, borderRadius: "50%", border: "1px solid rgba(101,67,33,0.06)", opacity: 0.5 }} />
+        <div style={parchmentOverlay} />
+        <div style={globeOverlay} />
+        <div style={containerStyle}>
+          {/* Settings gear - upper right */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -32 }}>
+            <button onClick={() => setSettingsOpen(true)} style={{ background: "rgba(139,90,43,0.08)", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 10, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 20, transition: "all 0.2s", padding: 0 }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(139,90,43,0.15)"; e.currentTarget.style.borderColor = "rgba(139,90,43,0.3)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(139,90,43,0.08)"; e.currentTarget.style.borderColor = "rgba(139,90,43,0.15)"; }}
+            >⚙️</button>
+          </div>
+
+          <div style={{ textAlign: "center", paddingTop: 48, marginBottom: 48 }}>
+            <div style={{ fontSize: 48, marginBottom: 4, filter: "drop-shadow(0 2px 4px rgba(59,37,16,0.15))" }}>🧭</div>
+            <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 56, fontWeight: 700, margin: 0, letterSpacing: -1, lineHeight: 1, color: "#3B2510" }}>PackMate</h1>
+            <div style={{ width: 80, height: 2, background: "linear-gradient(90deg, transparent, rgba(139,90,43,0.4), transparent)", margin: "10px auto" }} />
+            <p style={{ fontFamily: "'Crimson Pro', serif", fontSize: 15, color: "#8B5A2B", marginTop: 6, letterSpacing: 3, textTransform: "uppercase", fontWeight: 400, fontStyle: "italic" }}>Never forget a thing</p>
+          </div>
+
+          <button onClick={() => navigate("setup")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, width: "100%", padding: "18px 24px", background: "linear-gradient(135deg, #5C3D1E 0%, #3B2510 100%)", color: "#EDD5A8", border: "2px solid rgba(139,90,43,0.3)", borderRadius: 14, fontSize: 17, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: "pointer", marginBottom: 16, transition: "all 0.2s", boxShadow: "0 4px 16px rgba(59,37,16,0.25), inset 0 1px 0 rgba(237,213,168,0.15)", letterSpacing: 0.5 }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+          >
+            <span style={{ fontSize: 20 }}>✦</span> New Packing List
+          </button>
+
+          {/* Settings Modal */}
+          {settingsOpen && !templateEditorOpen && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(59,37,16,0.5)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}
+              onClick={(e) => { if (e.target === e.currentTarget) { setSettingsOpen(false); setSettingsConfirm(null); } }}
+            >
+              <div style={{ background: "linear-gradient(170deg, #F5E6C8 0%, #EDD5A8 100%)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 440, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(139,90,43,0.25)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                  <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 26, fontWeight: 700, margin: 0 }}>Settings</h2>
+                  <button onClick={() => { setSettingsOpen(false); setSettingsConfirm(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#8B5A2B", padding: 4 }}>×</button>
+                </div>
+
+                {/* Customize Default Lists */}
+                <div onClick={() => { setSettingsOpen(false); setTemplateEditorOpen(true); }}
+                  style={{ display: "flex", alignItems: "center", gap: 14, background: "rgba(253,243,220,0.55)", borderRadius: 14, padding: "16px 18px", marginBottom: 10, cursor: "pointer", border: "1px solid rgba(139,90,43,0.06)", transition: "all 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.15)"; e.currentTarget.style.background = "rgba(253,243,220,0.7)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.06)"; e.currentTarget.style.background = "rgba(253,243,220,0.55)"; }}
+                >
+                  <span style={{ fontSize: 22 }}>📝</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14 }}>Customize Default Lists</div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", marginTop: 2 }}>Edit default items for activities & overnight tiers</div>
+                  </div>
+                  {Object.keys(templateOverrides).length > 0 && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#2D5016", fontWeight: 600, background: "rgba(45,80,22,0.1)", padding: "2px 8px", borderRadius: 8 }}>{Object.keys(templateOverrides).length} customized</span>}
+                  <span style={{ color: "#8B5A2B" }}>→</span>
+                </div>
+
+                {/* Customize Icons */}
+                <div style={{ background: "rgba(253,243,220,0.55)", borderRadius: 14, marginBottom: 10, border: "1px solid rgba(139,90,43,0.06)", overflow: "hidden" }}>
+                  <div onClick={() => setIconsExpanded(!iconsExpanded)}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", cursor: "pointer" }}
+                  >
+                    <span style={{ fontSize: 22 }}>🎭</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14 }}>Customize Icons</div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", marginTop: 2 }}>Change icons for person types & group</div>
+                    </div>
+                    {Object.keys(customIcons).length > 0 && (
+                      <button onClick={(e) => { e.stopPropagation(); resetAllIcons(); }} style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(139,90,43,0.2)", background: "transparent", color: "#8B5A2B", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Reset</button>
+                    )}
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#8B5A2B", transition: "transform 0.2s", transform: iconsExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>→</span>
+                  </div>
+                  {iconsExpanded && (
+                    <div style={{ padding: "0 16px 16px", borderTop: "1px solid rgba(139,90,43,0.06)" }}>
+                      {[...personTypes, { value: "group", label: "Group" }, { value: "food", label: "Food" }].map((pt) => {
+                        const currentIcon = pt.value === "group" ? groupIcon : pt.value === "food" ? foodIcon : pt.icon;
+                        const options = ICON_OPTIONS[pt.value] || [];
+                        return (
+                          <div key={pt.value} style={{ padding: "12px 0", borderBottom: "1px solid rgba(139,90,43,0.04)" }}>
+                            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: "#5C3D1E", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 16 }}>{currentIcon}</span> {pt.label}
+                            </div>
+                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                              {options.map((icon) => (
+                                <button key={icon} onClick={() => setCustomIcon(pt.value, icon)}
+                                  style={{ width: 36, height: 36, borderRadius: 8, border: currentIcon === icon ? "2px solid #3B2510" : "2px solid transparent", background: currentIcon === icon ? "rgba(139,90,43,0.1)" : "rgba(253,243,220,0.45)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", padding: 0 }}
+                                >{icon}</button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Manage Custom Add-ons */}
+                <div style={{ background: "rgba(253,243,220,0.55)", borderRadius: 14, marginBottom: 10, border: "1px solid rgba(139,90,43,0.06)", overflow: "hidden" }}>
+                  <div onClick={() => Object.keys(customAddons).length > 0 && setAddonsExpanded(!addonsExpanded)}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", cursor: Object.keys(customAddons).length > 0 ? "pointer" : "default" }}
+                  >
+                    <span style={{ fontSize: 22 }}>🧩</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14 }}>Custom Add-ons</div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", marginTop: 2 }}>{Object.keys(customAddons).length} custom add-on{Object.keys(customAddons).length !== 1 ? "s" : ""} created</div>
+                    </div>
+                    {Object.keys(customAddons).length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {settingsConfirm === "addons" ? (
+                          <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => setSettingsConfirm(null)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(139,90,43,0.15)", background: "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer", color: "#5C3D1E" }}>Cancel</button>
+                            <button onClick={() => executeSettingsAction("addons")} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#C4620E", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Confirm</button>
+                          </div>
+                        ) : (
+                          <button onClick={(e) => { e.stopPropagation(); setSettingsConfirm("addons"); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(196,98,14,0.3)", background: "transparent", color: "#C4620E", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Clear All</button>
+                        )}
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#8B5A2B", transition: "transform 0.2s", transform: addonsExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>→</span>
+                      </div>
+                    )}
+                  </div>
+                  {addonsExpanded && Object.keys(customAddons).length > 0 && (
+                    <div style={{ padding: "0 14px 14px", borderTop: "1px solid rgba(139,90,43,0.06)" }}>
+                      {Object.entries(customAddons).map(([key, addon]) => {
+                        const itemCount = Object.values(addon.items || {}).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+                        return (
+                          <div key={key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 6px", borderBottom: "1px solid rgba(139,90,43,0.04)" }}>
+                            <span style={{ fontSize: 18 }}>{addon.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600 }}>{addon.label}</span>
+                              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#8B5A2B", marginLeft: 8 }}>{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
+                            </div>
+                            <button onClick={() => deleteOneCustomAddon(key)}
+                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#C4620E", padding: "2px 6px", opacity: 0.6, transition: "opacity 0.15s" }}
+                              onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                              onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}
+                            >×</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Manage Saved Trips */}
+                <div style={{ display: "flex", alignItems: "center", gap: 14, background: "rgba(253,243,220,0.55)", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1px solid rgba(139,90,43,0.06)" }}>
+                  <span style={{ fontSize: 22 }}>🗂️</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14 }}>Saved Trips</div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", marginTop: 2 }}>{savedTrips.length} saved trip{savedTrips.length !== 1 ? "s" : ""}</div>
+                  </div>
+                  {savedTrips.length > 0 && (
+                    settingsConfirm === "trips" ? (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => setSettingsConfirm(null)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(139,90,43,0.15)", background: "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer", color: "#5C3D1E" }}>Cancel</button>
+                        <button onClick={() => executeSettingsAction("trips")} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#C4620E", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Confirm</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setSettingsConfirm("trips")} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(196,98,14,0.3)", background: "transparent", color: "#C4620E", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Clear All</button>
+                    )
+                  )}
+                </div>
+
+                {/* Reset All Template Customizations */}
+                {Object.keys(templateOverrides).length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, background: "rgba(253,243,220,0.55)", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1px solid rgba(139,90,43,0.06)" }}>
+                    <span style={{ fontSize: 22 }}>🔄</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14 }}>Template Customizations</div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", marginTop: 2 }}>{Object.keys(templateOverrides).length} template{Object.keys(templateOverrides).length !== 1 ? "s" : ""} customized</div>
+                    </div>
+                    {settingsConfirm === "templates" ? (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => setSettingsConfirm(null)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(139,90,43,0.15)", background: "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer", color: "#5C3D1E" }}>Cancel</button>
+                        <button onClick={() => executeSettingsAction("templates")} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#C4620E", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Confirm</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setSettingsConfirm("templates")} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(196,98,14,0.3)", background: "transparent", color: "#C4620E", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Reset All</button>
+                    )}
+                  </div>
+                )}
+
+                {/* Reset Everything */}
+                <div style={{ borderTop: "1px solid rgba(139,90,43,0.08)", marginTop: 16, paddingTop: 16 }}>
+                  {settingsConfirm === "all" ? (
+                    <div style={{ textAlign: "center" }}>
+                      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#C4620E", fontWeight: 600, margin: "0 0 12px" }}>This will erase all saved trips, custom add-ons, and template customizations.</p>
+                      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                        <button onClick={() => setSettingsConfirm(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(139,90,43,0.15)", background: "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#5C3D1E" }}>Cancel</button>
+                        <button onClick={() => executeSettingsAction("all")} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#C4620E", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Erase Everything</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => setSettingsConfirm("all")} style={{ width: "100%", padding: "12px 20px", border: "1px solid rgba(196,98,14,0.2)", borderRadius: 12, background: "transparent", color: "#C4620E", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(196,98,14,0.05)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >Reset Everything to Factory Defaults</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Template Editor Modal */}
+          {templateEditorOpen && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(59,37,16,0.5)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}
+              onClick={(e) => { if (e.target === e.currentTarget) { setTemplateEditorOpen(false); setTplEditorCategory(null); } }}
+            >
+              <div style={{ background: "linear-gradient(170deg, #F5E6C8 0%, #EDD5A8 100%)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(139,90,43,0.25)" }}>
+                {!tplEditorCategory && !newActivityOpen ? (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 26, fontWeight: 700, margin: 0 }}>Customize Default Lists</h2>
+                      <button onClick={() => setTemplateEditorOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#8B5A2B", padding: 4 }}>×</button>
+                    </div>
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#8B5A2B", marginTop: 0, marginBottom: 20 }}>
+                      Edit items, toggle visibility, or create custom activities. Changes apply to all future trips.
+                    </p>
+
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600 }}>Activities</label>
+                        <button onClick={() => setNewActivityOpen(true)}
+                          style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px dashed rgba(139,90,43,0.2)", background: "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#8B5A2B", transition: "all 0.15s" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.4)"; e.currentTarget.style.color = "#3B2510"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.2)"; e.currentTarget.style.color = "#8B5A2B"; }}
+                        >+ New Activity</button>
+                      </div>
+                      {editableCategories.filter((c) => c.type === "activity").map((cat) => {
+                        const isCustomized = !!templateOverrides[cat.key];
+                        const isHidden = hiddenActivities.includes(cat.key);
+                        return (
+                          <div key={cat.key}
+                            style={{ display: "flex", alignItems: "center", gap: 10, background: isHidden ? "rgba(0,0,0,0.02)" : "rgba(253,243,220,0.55)", borderRadius: 12, padding: "10px 14px", marginBottom: 6, border: "1px solid rgba(139,90,43,0.06)", transition: "all 0.15s", opacity: isHidden ? 0.55 : 1 }}
+                          >
+                            {/* Visibility toggle */}
+                            <button onClick={() => toggleActivityVisibility(cat.key)}
+                              style={{ width: 22, height: 22, borderRadius: 6, border: isHidden ? "2px solid rgba(139,90,43,0.15)" : `2px solid ${allActivities[cat.key]?.color || "#3B2510"}`, background: isHidden ? "transparent" : (allActivities[cat.key]?.color || "#3B2510"), cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0, fontSize: 11, color: "white", fontWeight: 700, transition: "all 0.2s" }}
+                            >{isHidden ? "" : "✓"}</button>
+                            <span style={{ fontSize: 20 }}>{cat.icon}</span>
+                            <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, textDecoration: isHidden ? "line-through" : "none", color: isHidden ? "#A8895A" : "#3B2510" }}>{cat.label}</span>
+                            {cat.isCustom && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#1B7A8A", fontWeight: 600, background: "rgba(27,122,138,0.1)", padding: "2px 6px", borderRadius: 6 }}>Custom</span>}
+                            {isCustomized && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#2D5016", fontWeight: 600, background: "rgba(45,80,22,0.1)", padding: "2px 6px", borderRadius: 6 }}>Edited</span>}
+                            <button onClick={() => openTemplateEditor(cat.key)}
+                              style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", padding: "4px 8px" }}
+                            >Edit →</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div>
+                      <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 12 }}>Overnight Tiers</label>
+                      {editableCategories.filter((c) => c.type === "duration").map((cat) => {
+                        const isCustomized = !!templateOverrides[cat.key];
+                        return (
+                          <div key={cat.key} onClick={() => openTemplateEditor(cat.key)}
+                            style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(253,243,220,0.55)", borderRadius: 12, padding: "12px 16px", marginBottom: 8, cursor: "pointer", border: "1px solid rgba(139,90,43,0.06)", transition: "all 0.15s" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.15)"; e.currentTarget.style.background = "rgba(253,243,220,0.7)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.06)"; e.currentTarget.style.background = "rgba(253,243,220,0.55)"; }}
+                          >
+                            <span style={{ fontSize: 22 }}>{cat.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600 }}>{cat.label}</span>
+                              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B", marginLeft: 8 }}>{cat.minNights}+ nights</span>
+                            </div>
+                            {isCustomized && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#2D5016", fontWeight: 600, background: "rgba(45,80,22,0.1)", padding: "2px 8px", borderRadius: 8 }}>Customized</span>}
+                            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#8B5A2B" }}>→</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : newActivityOpen ? (
+                  <>
+                    {/* Create Custom Activity */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <button onClick={() => setNewActivityOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#8B5A2B", padding: 0 }}>←</button>
+                        <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 20, fontWeight: 800, margin: 0 }}>New Activity</h2>
+                      </div>
+                      <button onClick={() => { setTemplateEditorOpen(false); setNewActivityOpen(false); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#8B5A2B", padding: 4 }}>×</button>
+                    </div>
+
+                    <div style={{ marginBottom: 20 }}>
+                      <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 8 }}>Name</label>
+                      <input value={newActivityName} onChange={(e) => setNewActivityName(e.target.value)} placeholder="e.g. Ski Trip, Beach Day..."
+                        style={{ width: "100%", padding: "12px 16px", border: "1px solid rgba(139,90,43,0.12)", borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif", background: "rgba(253,243,220,0.6)", outline: "none", boxSizing: "border-box", color: "#3B2510" }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 20 }}>
+                      <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 8 }}>Icon</label>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {ACTIVITY_ICON_OPTIONS.map((icon) => (
+                          <button key={icon} onClick={() => setNewActivityIcon(icon)}
+                            style={{ width: 38, height: 38, borderRadius: 10, border: newActivityIcon === icon ? "2px solid #3B2510" : "2px solid transparent", background: newActivityIcon === icon ? "rgba(139,90,43,0.08)" : "rgba(253,243,220,0.55)", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                          >{icon}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 24 }}>
+                      <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 8 }}>Color</label>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {ACTIVITY_COLORS.map((c) => (
+                          <button key={c} onClick={() => setNewActivityColor(c)}
+                            style={{ width: 32, height: 32, borderRadius: 8, background: c, border: newActivityColor === c ? "3px solid #3B2510" : "3px solid transparent", cursor: "pointer", transition: "all 0.15s", outline: newActivityColor === c ? "2px solid rgba(255,255,255,0.8)" : "none", outlineOffset: -3 }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <button onClick={saveCustomActivity} disabled={!newActivityName.trim()}
+                      style={{ width: "100%", padding: "14px 20px", border: "none", borderRadius: 12, background: !newActivityName.trim() ? "#A8895A" : "#3B2510", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: !newActivityName.trim() ? "not-allowed" : "pointer", boxShadow: !newActivityName.trim() ? "none" : "0 4px 16px rgba(139,90,43,0.2)" }}
+                    >Create & Add Items →</button>
+                  </>
+                ) : (
+                  <>
+                    {/* Item editor for selected category */}
+                    {(() => {
+                      const cat = editableCategories.find((c) => c.key === tplEditorCategory);
+                      const isCustomized = !!templateOverrides[tplEditorCategory];
+                      const hasTabs = cat.type === "activity"
+                        ? [...personTypes, { value: "group", label: "Group", icon: groupIcon }]
+                        : [...personTypes, { value: "group", label: "Group", icon: groupIcon }];
+                      const currentList = getTplEditorCurrentList();
+                      return (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <button onClick={() => setTplEditorCategory(null)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#8B5A2B", padding: 0 }}>←</button>
+                              <span style={{ fontSize: 24 }}>{cat.icon}</span>
+                              <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 20, fontWeight: 800, margin: 0 }}>{cat.label}</h2>
+                              {cat.type === "duration" && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#8B5A2B" }}>{cat.minNights}+ nights</span>}
+                            </div>
+                            <button onClick={() => { setTemplateEditorOpen(false); setTplEditorCategory(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#8B5A2B", padding: 4 }}>×</button>
+                          </div>
+
+                          {/* Tabs */}
+                          <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                            {hasTabs.map((pt) => {
+                              const active = tplEditorTab === pt.value;
+                              const list = pt.value === "group"
+                                ? (cat.type === "activity" ? tplEditorGroupItems : (tplEditorItems.group || []))
+                                : (tplEditorItems[pt.value] || []);
+                              const count = list.length;
+                              return (
+                                <button key={pt.value} onClick={() => setTplEditorTab(pt.value)}
+                                  style={{ padding: "7px 12px", borderRadius: 10, border: active ? "2px solid #3B2510" : "2px solid rgba(139,90,43,0.1)", background: active ? "rgba(139,90,43,0.06)" : "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s", color: active ? "#3B2510" : "#8B5A2B" }}
+                                >
+                                  {pt.icon} {pt.label} {count > 0 && <span style={{ background: "#3B2510", color: "#F5E6C8", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{count}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Item list */}
+                          <div style={{ background: "rgba(253,243,220,0.55)", borderRadius: 12, padding: 12, minHeight: 60, marginBottom: 20 }}>
+                            {currentList.length === 0 && (
+                              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#A8895A", textAlign: "center", margin: "12px 0" }}>
+                                No items for {hasTabs.find((t) => t.value === tplEditorTab)?.label}
+                              </p>
+                            )}
+                            {currentList.map((item, idx) => (
+                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: idx < currentList.length - 1 ? "1px solid rgba(139,90,43,0.05)" : "none" }}>
+                                <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", fontSize: 14 }}>{item}</span>
+                                <button onClick={() => removeTplEditorItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#C4620E", padding: 2, opacity: 0.6 }}
+                                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}
+                                >×</button>
+                              </div>
+                            ))}
+                            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                              <input value={tplEditorNewItem} onChange={(e) => setTplEditorNewItem(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") addTplEditorItem(); }}
+                                placeholder={`Add ${hasTabs.find((t) => t.value === tplEditorTab)?.label} item...`}
+                                style={{ flex: 1, padding: "8px 12px", border: "1px solid rgba(139,90,43,0.12)", borderRadius: 8, fontSize: 13, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                              />
+                              <button onClick={addTplEditorItem}
+                                style={{ background: "#3B2510", color: "#F5E6C8", border: "none", borderRadius: 8, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                              >Add</button>
+                            </div>
+                          </div>
+
+                          {/* Save / Reset / Delete */}
+                          <div style={{ display: "flex", gap: 10 }}>
+                            {isCustomized && !cat.isCustom && (
+                              <button onClick={resetTplEditorToDefaults}
+                                style={{ padding: "14px 16px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 12, background: "transparent", color: "#8B5A2B", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                              >Reset to Defaults</button>
+                            )}
+                            {cat.isCustom && (
+                              <button onClick={() => deleteCustomActivity(cat.key)}
+                                style={{ padding: "14px 16px", border: "1px solid #C4620E", borderRadius: 12, background: "transparent", color: "#C4620E", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                              >Delete</button>
+                            )}
+                            <button onClick={saveTplEditorOverride}
+                              style={{ flex: 1, padding: "14px 20px", border: "none", borderRadius: 12, background: "#3B2510", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 16px rgba(139,90,43,0.2)" }}
+                            >Save Changes</button>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {savedTrips.length > 0 && (
+            <div style={{ marginTop: 40 }}>
+              <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 22, color: "#5C3D1E", marginBottom: 16, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 30, height: 1, background: "rgba(139,90,43,0.3)", display: "inline-block" }} />
+                Saved Expeditions
+                <span style={{ width: 30, height: 1, background: "rgba(139,90,43,0.3)", display: "inline-block" }} />
+              </h2>
+              {savedTrips.map((trip) => {
+                const tmpl = allActivities[trip.activity] || ACTIVITY_TEMPLATES[trip.activity];
+                const total = trip.sections.reduce((a, s) => a + s.items.length, 0);
+                const done = trip.sections.reduce((a, s) => a + s.items.filter((i) => i.checked).length, 0);
+                const pct = total ? Math.round((done / total) * 100) : 0;
+                return (
+                  <div key={trip.id} style={{ background: "rgba(253,243,220,0.7)", borderRadius: 12, padding: "16px 18px", marginBottom: 10, cursor: "pointer", border: "1px solid rgba(139,90,43,0.1)", transition: "all 0.2s", position: "relative", borderLeft: `3px solid ${tmpl?.color || "#8B5A2B"}` }}
+                    onClick={() => loadTrip(trip)}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(59,37,16,0.1)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontSize: 26 }}>{tmpl?.icon}</span>
+                        <div>
+                          <div style={{ fontFamily: "'Caveat', cursive", fontWeight: 600, fontSize: 19, color: "#3B2510" }}>{trip.name}</div>
+                          <div style={{ fontFamily: "'Crimson Pro', serif", fontSize: 13, color: "#8B5A2B", marginTop: 1, fontStyle: "italic" }}>
+                            {trip.nights || 1} {(trip.nights || 1) === 1 ? "night" : "nights"} · {trip.sections.length} {trip.sections.length === 1 ? "traveler" : "travelers"} · {done}/{total} packed
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 42, height: 42, borderRadius: "50%", background: `conic-gradient(${tmpl?.color || "#3B2510"} ${pct * 3.6}deg, rgba(139,90,43,0.1) 0deg)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#EDD5A8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "#5C3D1E" }}>{pct}%</div>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(trip.id); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#A8895A", padding: 4, opacity: 0.5 }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}
+                        >×</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {confirmDeleteId && (() => {
+            const trip = savedTrips.find((t) => t.id === confirmDeleteId);
+            if (!trip) return null;
+            const tmpl = allActivities[trip.activity] || ACTIVITY_TEMPLATES[trip.activity];
+            return (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(59,37,16,0.5)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}
+                onClick={(e) => { if (e.target === e.currentTarget) setConfirmDeleteId(null); }}
+              >
+                <div style={{ background: "linear-gradient(170deg, #F5E6C8 0%, #EDD5A8 100%)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(139,90,43,0.25)", textAlign: "center" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>{tmpl?.icon || "📋"}</div>
+                  <h3 style={{ fontFamily: "'Caveat', cursive", fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Delete this trip?</h3>
+                  <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#5C3D1E", margin: "0 0 4px", fontWeight: 600 }}>{trip.name}</p>
+                  <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#8B5A2B", margin: "0 0 24px" }}>
+                    This will permanently remove the trip and all its items. This can't be undone.
+                  </p>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setConfirmDeleteId(null)}
+                      style={{ flex: 1, padding: "14px 20px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 12, background: "transparent", color: "#5C3D1E", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                    >Cancel</button>
+                    <button onClick={() => { deleteTrip(confirmDeleteId); setConfirmDeleteId(null); }}
+                      style={{ flex: 1, padding: "14px 20px", border: "none", borderRadius: 12, background: "#C4620E", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 16px rgba(196,98,14,0.25)" }}
+                    >Delete</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    );
+  }
+
+  // --- SETUP SCREEN ---
+  if (screen === "setup") {
+    return (
+      <div style={wrapStyle}>
+        <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Crimson+Pro:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+        <div style={parchmentOverlay} />
+        <div style={globeOverlay} />
+        <div style={containerStyle}>
+          <button onClick={resetForNew} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Crimson Pro', serif", fontSize: 14, color: "#8B5A2B", marginBottom: 24, padding: 0, display: "flex", alignItems: "center", gap: 6, fontStyle: "italic" }}>
+            ← Back to camp
+          </button>
+
+          <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 40, fontWeight: 700, margin: "0 0 8px", color: "#3B2510" }}>Plan Your Expedition</h1>
+          <div style={{ width: 60, height: 2, background: "linear-gradient(90deg, rgba(139,90,43,0.4), transparent)", marginBottom: 32 }} />
+
+          {/* Trip Name */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ fontFamily: "'Caveat', cursive", fontSize: 20, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 10 }}>Trip Name</label>
+            <input value={tripName} onChange={(e) => setTripName(e.target.value)} placeholder="The Lost Temple Expedition..."
+              style={{ width: "100%", padding: "14px 18px", border: "none", borderBottom: "2px solid rgba(139,90,43,0.2)", borderRadius: 0, fontSize: 18, fontFamily: "'Caveat', cursive", background: "transparent", outline: "none", boxSizing: "border-box", color: "#3B2510" }}
+            />
+          </div>
+
+          {/* Number of Nights */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ fontFamily: "'Caveat', cursive", fontSize: 20, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 12 }}>Duration (nights)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <button onClick={() => setNights(Math.max(0, nights - 1))}
+                style={{ width: 40, height: 40, borderRadius: 10, border: "1.5px solid rgba(139,90,43,0.2)", background: "transparent", cursor: "pointer", fontSize: 20, fontWeight: 500, color: "#5C3D1E", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+              >−</button>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: "'Caveat', cursive", fontSize: 40, fontWeight: 700, color: "#3B2510", minWidth: 30, textAlign: "center" }}>{nights}</span>
+                <span style={{ fontFamily: "'Crimson Pro', serif", fontSize: 15, color: "#8B5A2B", fontStyle: "italic" }}>{nights === 1 ? "night" : "nights"}</span>
+              </div>
+              <button onClick={() => setNights(nights + 1)}
+                style={{ width: 40, height: 40, borderRadius: 10, border: "1.5px solid rgba(139,90,43,0.2)", background: "transparent", cursor: "pointer", fontSize: 20, fontWeight: 500, color: "#5C3D1E", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+              >+</button>
+            </div>
+            {nights === 0 && <p style={{ fontFamily: "'Crimson Pro', serif", fontSize: 13, color: "#8B5A2B", marginTop: 8, fontStyle: "italic" }}>Day expedition — no overnight supplies needed</p>}
+            {nights >= 2 && nights < 4 && <p style={{ fontFamily: "'Crimson Pro', serif", fontSize: 13, color: "#8B5A2B", marginTop: 8, fontStyle: "italic" }}>Multi-day journey — toiletries & essentials included</p>}
+            {nights >= 4 && nights < 7 && <p style={{ fontFamily: "'Crimson Pro', serif", fontSize: 13, color: "#8B5A2B", marginTop: 8, fontStyle: "italic" }}>Extended expedition — laundry bag, extra shoes…</p>}
+            {nights >= 7 && <p style={{ fontFamily: "'Crimson Pro', serif", fontSize: 13, color: "#8B5A2B", marginTop: 8, fontStyle: "italic" }}>Long journey — all provision tiers activated</p>}
+          </div>
+
+          {/* Activity Selection */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ fontFamily: "'Caveat', cursive", fontSize: 20, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 12 }}>Activity</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              {Object.entries(visibleActivities).map(([key, tmpl]) => (
+                <button key={key} onClick={() => setSelectedActivity(key)}
+                  style={{ padding: "14px 10px", border: selectedActivity === key ? `2px solid ${tmpl.color}` : "2px solid rgba(139,90,43,0.1)", borderRadius: 12, background: selectedActivity === key ? `${tmpl.color}12` : "rgba(253,243,220,0.5)", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}
+                >
+                  <div style={{ fontSize: 26, marginBottom: 4 }}>{tmpl.icon}</div>
+                  <div style={{ fontFamily: "'Caveat', cursive", fontSize: 15, fontWeight: 600, color: selectedActivity === key ? tmpl.color : "#5C3D1E" }}>{tmpl.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Weather */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ fontFamily: "'Caveat', cursive", fontSize: 20, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 12 }}>Weather Conditions</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {Object.entries(WEATHER_ADDITIONS).map(([key, w]) => {
+                const active = selectedWeather.includes(key);
+                return (
+                  <button key={key} onClick={() => setSelectedWeather(active ? selectedWeather.filter((x) => x !== key) : [...selectedWeather, key])}
+                    style={{ padding: "10px 18px", border: active ? "2px solid #3B2510" : "2px solid transparent", borderRadius: 40, background: active ? "rgba(139,90,43,0.08)" : "rgba(253,243,220,0.55)", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s" }}
+                  >
+                    <span>{w.icon}</span> {w.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Activity Add-ons */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ fontFamily: "'Caveat', cursive", fontSize: 20, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 12 }}>Add-ons</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {Object.entries(allAddons).map(([key, addon]) => {
+                const active = selectedAddons.includes(key);
+                const isCustom = addon.custom;
+                return (
+                  <div key={key} style={{ position: "relative", display: "inline-flex" }}>
+                    <button onClick={() => setSelectedAddons(active ? selectedAddons.filter((x) => x !== key) : [...selectedAddons, key])}
+                      style={{ padding: "10px 18px", border: active ? "2px solid #3B2510" : "2px solid transparent", borderRadius: 40, background: active ? "rgba(139,90,43,0.08)" : "rgba(253,243,220,0.55)", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s", paddingRight: isCustom ? 32 : 18 }}
+                    >
+                      <span>{addon.icon}</span> {addon.label}
+                    </button>
+                    {isCustom && (
+                      <div style={{ position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 0 }}>
+                        <button onClick={(e) => { e.stopPropagation(); openAddonBuilder(key); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: "2px 4px", opacity: 0.5, color: "#3B2510" }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}
+                          title="Edit add-on"
+                        >✎</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <button onClick={() => openAddonBuilder()}
+                style={{ padding: "10px 18px", border: "2px dashed rgba(139,90,43,0.2)", borderRadius: 40, background: "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6, color: "#8B5A2B", transition: "all 0.2s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.4)"; e.currentTarget.style.color = "#3B2510"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(139,90,43,0.2)"; e.currentTarget.style.color = "#8B5A2B"; }}
+              >
+                + Create add-on
+              </button>
+            </div>
+          </div>
+
+          {/* Addon Builder Modal */}
+          {addonBuilderOpen && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(59,37,16,0.5)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}
+              onClick={(e) => { if (e.target === e.currentTarget) closeAddonBuilder(); }}
+            >
+              <div style={{ background: "linear-gradient(170deg, #F5E6C8 0%, #EDD5A8 100%)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(139,90,43,0.25)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                  <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 26, fontWeight: 700, margin: 0 }}>
+                    {editingAddon ? "Edit Add-on" : "Create Add-on"}
+                  </h2>
+                  <button onClick={closeAddonBuilder} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#8B5A2B", padding: 4 }}>×</button>
+                </div>
+
+                {/* Name & Icon */}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 8 }}>Name</label>
+                  <input value={addonName} onChange={(e) => setAddonName(e.target.value)} placeholder="e.g. Archery, Photography..."
+                    style={{ width: "100%", padding: "12px 16px", border: "1px solid rgba(139,90,43,0.12)", borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif", background: "rgba(253,243,220,0.6)", outline: "none", boxSizing: "border-box", color: "#3B2510" }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 8 }}>Icon</label>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {ADDON_ICONS.map((icon) => (
+                      <button key={icon} onClick={() => setAddonIcon(icon)}
+                        style={{ width: 38, height: 38, borderRadius: 10, border: addonIcon === icon ? "2px solid #3B2510" : "2px solid transparent", background: addonIcon === icon ? "rgba(139,90,43,0.08)" : "rgba(253,243,220,0.55)", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                      >{icon}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Person type tabs */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 10 }}>Items by Type</label>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                    {[...personTypes, { value: "group", label: "Group", icon: groupIcon }].map((pt) => {
+                      const active = addonActiveTab === pt.value;
+                      const count = { adult: addonItemsAdult, child: addonItemsChild, baby: addonItemsBaby, pet: addonItemsPet, group: addonItemsGroup }[pt.value].length;
+                      return (
+                        <button key={pt.value} onClick={() => setAddonActiveTab(pt.value)}
+                          style={{ padding: "8px 14px", borderRadius: 10, border: active ? "2px solid #3B2510" : "2px solid rgba(139,90,43,0.1)", background: active ? "rgba(139,90,43,0.06)" : "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s", color: active ? "#3B2510" : "#8B5A2B" }}
+                        >
+                          {pt.icon} {pt.label} {count > 0 && <span style={{ background: "#3B2510", color: "#F5E6C8", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Items list for current tab */}
+                  <div style={{ background: "rgba(253,243,220,0.55)", borderRadius: 12, padding: 12, minHeight: 60 }}>
+                    {addonActiveTab === "group" && getAddonItemsForTab().length === 0 && (
+                      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#A8895A", textAlign: "center", margin: "12px 0" }}>
+                        No group items yet — these go into the shared "Group Items" section
+                      </p>
+                    )}
+                    {addonActiveTab !== "group" && getAddonItemsForTab().length === 0 && (
+                      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#A8895A", textAlign: "center", margin: "12px 0" }}>
+                        No items yet for {[...personTypes, { value: "group", label: "Group" }].find((p) => p.value === addonActiveTab)?.label}
+                      </p>
+                    )}
+                    {getAddonItemsForTab().map((item, idx) => (
+                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: idx < getAddonItemsForTab().length - 1 ? "1px solid rgba(139,90,43,0.05)" : "none" }}>
+                        <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", fontSize: 14 }}>{item}</span>
+                        <button onClick={() => removeAddonItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#C4620E", padding: 2, opacity: 0.6 }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}
+                        >×</button>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <input value={addonNewItem} onChange={(e) => setAddonNewItem(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addAddonItem(); }}
+                        placeholder={`Add ${addonActiveTab === "group" ? "group" : [...personTypes].find((p) => p.value === addonActiveTab)?.label} item...`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid rgba(139,90,43,0.12)", borderRadius: 8, fontSize: 13, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                      />
+                      <button onClick={addAddonItem}
+                        style={{ background: "#3B2510", color: "#F5E6C8", border: "none", borderRadius: 8, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                      >Add</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save / Delete buttons */}
+                <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+                  {editingAddon && (
+                    <button onClick={() => { deleteCustomAddon(editingAddon); closeAddonBuilder(); }}
+                      style={{ padding: "14px 20px", border: "1px solid #C4620E", borderRadius: 12, background: "transparent", color: "#C4620E", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                    >Delete</button>
+                  )}
+                  <button onClick={saveCustomAddon} disabled={!addonName.trim()}
+                    style={{ flex: 1, padding: "14px 20px", border: "none", borderRadius: 12, background: addonName.trim() ? "#3B2510" : "#A8895A", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: addonName.trim() ? "pointer" : "not-allowed", boxShadow: addonName.trim() ? "0 4px 16px rgba(139,90,43,0.2)" : "none" }}
+                  >{editingAddon ? "Save Changes" : "Create Add-on"}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* People */}
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ fontFamily: "'Caveat', cursive", fontSize: 20, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 12 }}>The Expedition Party</label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+              {personTypes.map((pt) => {
+                const tmpl = selectedActivity ? getEffectiveActivityTemplate(selectedActivity) : null;
+                const disabled = tmpl && (!tmpl.items[pt.value] || tmpl.items[pt.value].length === 0);
+                return (
+                  <button key={pt.value} onClick={() => !disabled && addPerson(pt.value)} disabled={disabled}
+                    style={{ padding: "10px 18px", borderRadius: 40, border: "2px solid rgba(139,90,43,0.1)", background: disabled ? "rgba(0,0,0,0.03)" : "rgba(253,243,220,0.6)", cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 6, opacity: disabled ? 0.4 : 1, transition: "all 0.2s" }}
+                  >
+                    <span>{pt.icon}</span> + {pt.label}
+                  </button>
+                );
+              })}
+            </div>
+            {people.map((person) => {
+              const pt = personTypes.find((p) => p.value === person.type);
+              return (
+                <div key={person.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(253,243,220,0.55)", borderRadius: 12, padding: "10px 14px", marginBottom: 8 }}>
+                  <span style={{ fontSize: 20 }}>{pt.icon}</span>
+                  {personNameEdit === person.id ? (
+                    <input autoFocus value={person.name}
+                      onChange={(e) => setPeople(people.map((p) => p.id === person.id ? { ...p, name: e.target.value } : p))}
+                      onBlur={() => setPersonNameEdit(null)}
+                      onKeyDown={(e) => e.key === "Enter" && setPersonNameEdit(null)}
+                      style={{ flex: 1, padding: "4px 8px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 8, fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                    />
+                  ) : (
+                    <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500, cursor: "pointer" }}
+                      onClick={() => setPersonNameEdit(person.id)}
+                    >{person.name} <span style={{ fontSize: 11, color: "#8B5A2B" }}>✎</span></span>
+                  )}
+                  <button onClick={() => removePerson(person.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#C4620E", padding: 4 }}>×</button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Generate Button */}
+          <button onClick={generateChecklist} disabled={!selectedActivity || people.length === 0}
+            style={{ width: "100%", padding: "18px 24px", background: !selectedActivity || people.length === 0 ? "#A8895A" : "linear-gradient(135deg, #5C3D1E 0%, #3B2510 100%)", color: "#EDD5A8", border: !selectedActivity || people.length === 0 ? "none" : "2px solid rgba(139,90,43,0.3)", borderRadius: 14, fontSize: 17, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: !selectedActivity || people.length === 0 ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: !selectedActivity || people.length === 0 ? "none" : "0 4px 20px rgba(59,37,16,0.25), inset 0 1px 0 rgba(237,213,168,0.15)", letterSpacing: 0.5 }}
+          >
+            Begin the Expedition 🧭
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- CHECKLIST SCREEN ---
+  if (screen === "checklist" && checklist) {
+    const tmpl = allActivities[checklist.activity] || ACTIVITY_TEMPLATES[checklist.activity];
+    return (
+      <div style={wrapStyle}>
+        <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Crimson+Pro:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+        <div style={parchmentOverlay} />
+        <div style={globeOverlay} />
+        <div style={containerStyle}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <button onClick={resetForNew} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Crimson Pro', serif", fontSize: 14, color: "#8B5A2B", padding: 0, display: "flex", alignItems: "center", gap: 6, fontStyle: "italic" }}>← Base camp</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={printChecklist} style={{ background: "rgba(139,90,43,0.08)", color: "#3B2510", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 10, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 5 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.15)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.08)"}
+              >🖨 Print</button>
+              <button onClick={openEditMode} style={{ background: "rgba(139,90,43,0.08)", color: "#3B2510", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 10, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 5 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.15)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.08)"}
+              >✎ Edit</button>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500, color: "#5C6B3A", display: "flex", alignItems: "center", gap: 4, padding: "8px 12px", background: "rgba(92,107,58,0.1)", borderRadius: 10, border: "1px solid rgba(92,107,58,0.15)" }}>✓ Logged</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <span style={{ fontSize: 36, filter: "drop-shadow(0 2px 3px rgba(59,37,16,0.15))" }}>{tmpl.icon}</span>
+            <h1 style={{ fontFamily: "'Caveat', cursive", fontSize: 34, fontWeight: 700, margin: 0, flex: 1, color: "#3B2510" }}>{checklist.name}</h1>
+          </div>
+          <div style={{ width: 50, height: 2, background: "linear-gradient(90deg, rgba(139,90,43,0.4), transparent)", marginBottom: 16 }} />
+
+          {/* Overall Progress */}
+          <div style={{ background: "rgba(253,243,220,0.55)", borderRadius: 14, padding: "16px 20px", marginBottom: 28, border: "1px solid rgba(139,90,43,0.08)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontFamily: "'Caveat', cursive", fontSize: 18, fontWeight: 600, color: "#5C3D1E" }}>Expedition Progress</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 700, color: tmpl.color }}>{progress.checked}/{progress.total} · {progress.pct}%</span>
+            </div>
+            <div style={{ height: 8, borderRadius: 4, background: "rgba(139,90,43,0.1)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${progress.pct}%`, background: `linear-gradient(90deg, ${tmpl.color}, ${tmpl.color}CC)`, borderRadius: 4, transition: "width 0.4s cubic-bezier(0.22, 1, 0.36, 1)" }} />
+            </div>
+            {progress.pct === 100 && (
+              <div style={{ textAlign: "center", marginTop: 12, fontSize: 15, fontFamily: "'Caveat', cursive", color: tmpl.color, fontWeight: 600 }}>
+                🧭 All supplies accounted for — adventure awaits!
+              </div>
+            )}
+          </div>
+
+          {/* Trip info badges */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 500, background: "rgba(253,243,220,0.6)", padding: "5px 12px", borderRadius: 20, color: "#5C3D1E" }}>
+              🌄 {checklist.nights} {checklist.nights === 1 ? "night" : "nights"}
+            </span>
+            {checklist.weather.map((w) => (
+              <span key={w} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 500, background: "rgba(253,243,220,0.6)", padding: "5px 12px", borderRadius: 20, color: "#5C3D1E" }}>
+                {WEATHER_ADDITIONS[w].icon} {WEATHER_ADDITIONS[w].label}
+              </span>
+            ))}
+            {(checklist.addons || []).map((a) => (
+              <span key={a} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 500, background: "rgba(253,243,220,0.6)", padding: "5px 12px", borderRadius: 20, color: "#5C3D1E" }}>
+                {allAddons[a]?.icon || "📋"} {allAddons[a]?.label || a}
+              </span>
+            ))}
+          </div>
+
+          {/* Group by activity toggle - only show if there are addon items */}
+          {(checklist.addons || []).length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, background: "rgba(253,243,220,0.45)", borderRadius: 12, padding: "10px 16px" }}>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, color: "#5C3D1E" }}>Group add-on items by activity</span>
+              <button onClick={toggleGroupByActivity}
+                style={{ width: 48, height: 26, borderRadius: 13, border: "none", background: groupByActivity ? tmpl.color : "rgba(139,90,43,0.15)", cursor: "pointer", position: "relative", transition: "background 0.25s", padding: 0 }}
+              >
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: "white", position: "absolute", top: 3, left: groupByActivity ? 25 : 3, transition: "left 0.25s cubic-bezier(0.22, 1, 0.36, 1)", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }} />
+              </button>
+            </div>
+          )}
+
+          {/* Food & Drinks Section */}
+          {checklist.foodItems && checklist.foodItems.length > 0 && (() => {
+            const fTotal = checklist.foodItems.length;
+            const fChecked = checklist.foodItems.filter((i) => i.checked).length;
+            const fPct = fTotal ? Math.round((fChecked / fTotal) * 100) : 0;
+            const fUnchecked = checklist.foodItems.filter((i) => !i.checked);
+            const fDone = checklist.foodItems.filter((i) => i.checked);
+            return (
+              <div style={{ marginBottom: 28, background: "rgba(253,243,220,0.6)", borderRadius: 14, border: `1px solid ${tmpl.color}22`, overflow: "hidden", borderLeft: `3px solid ${tmpl.color}60` }}>
+                <div style={{ padding: "14px 18px", borderBottom: "1px dashed rgba(139,90,43,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between", background: `${tmpl.color}06` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{foodIcon}</span>
+                    <span style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: 20, color: "#3B2510" }}>Food & Drinks</span>
+                  </div>
+                  <span style={{ fontFamily: "'Crimson Pro', serif", fontSize: 12, fontWeight: 500, color: fPct === 100 ? "#5C6B3A" : "#8B5A2B", fontStyle: "italic" }}>
+                    {fPct === 100 ? "✓ packed" : `${fChecked} of ${fTotal}`}
+                  </span>
+                </div>
+                <div style={{ padding: "8px 12px" }}>
+                  {fUnchecked.map((item) => (
+                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 10, cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.03)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    >
+                      <div onClick={() => toggleFoodItem(item.id)} style={{ width: 22, height: 22, borderRadius: 4, border: "2px solid rgba(139,90,43,0.25)", cursor: "pointer", flexShrink: 0, transition: "all 0.2s" }} />
+                      <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, fontWeight: 400 }}>
+                        {item.text}
+                        {item.activity && allActivities[item.activity] && <span style={{ fontSize: 10, color: allActivities[item.activity].color, marginLeft: 6 }}>{allActivities[item.activity].icon}</span>}
+                        {item.custom && <span style={{ fontSize: 10, color: "#C4620E", marginLeft: 6 }}>★</span>}
+                      </span>
+                      <button onClick={() => deleteFoodItem(item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2, opacity: 0.5 }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}
+                      >×</button>
+                    </div>
+                  ))}
+                  {fDone.length > 0 && (
+                    <div style={{ borderTop: fUnchecked.length > 0 ? "1px dashed rgba(139,90,43,0.08)" : "none", marginTop: 4, paddingTop: 4 }}>
+                      {fDone.map((item) => (
+                        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 8px", opacity: 0.45 }}>
+                          <div onClick={() => toggleFoodItem(item.id)} style={{ width: 22, height: 22, borderRadius: 6, background: tmpl.color, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 12, fontWeight: 700 }}>✓</div>
+                          <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, textDecoration: "line-through" }}>{item.text}</span>
+                          <button onClick={() => deleteFoodItem(item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {addingFoodItem ? (
+                    <div style={{ display: "flex", gap: 8, padding: "8px 8px", alignItems: "center" }}>
+                      <input autoFocus value={newFoodItemText} onChange={(e) => setNewFoodItemText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addCustomFoodItem(); if (e.key === "Escape") { setAddingFoodItem(false); setNewFoodItemText(""); } }}
+                        placeholder="Add food or drink item..."
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 10, fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                      />
+                      <button onClick={addCustomFoodItem} style={{ background: tmpl.color, color: "white", border: "none", borderRadius: 10, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                      <button onClick={() => { setAddingFoodItem(false); setNewFoodItemText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8B5A2B" }}>×</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingFoodItem(true)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: tmpl.color, padding: "10px 8px", fontWeight: 500 }}>
+                      + Add food item
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Group Items Section */}
+          {checklist.groupItems && checklist.groupItems.length > 0 && (() => {
+            const gTotal = checklist.groupItems.length;
+            const gChecked = checklist.groupItems.filter((i) => i.checked).length;
+            const gPct = gTotal ? Math.round((gChecked / gTotal) * 100) : 0;
+            const gUnchecked = checklist.groupItems.filter((i) => !i.checked);
+            const gDone = checklist.groupItems.filter((i) => i.checked);
+            return (
+              <div style={{ marginBottom: 28, background: "rgba(253,243,220,0.6)", borderRadius: 14, border: `1px solid ${tmpl.color}22`, overflow: "hidden", borderLeft: `3px solid ${tmpl.color}60` }}>
+                <div style={{ padding: "14px 18px", borderBottom: "1px dashed rgba(139,90,43,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between", background: `${tmpl.color}06` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{groupIcon}</span>
+                    <span style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: 20, color: "#3B2510" }}>Shared Gear</span>
+                    <span style={{ fontFamily: "'Crimson Pro', serif", fontSize: 12, color: "#8B5A2B", fontWeight: 400, fontStyle: "italic" }}>for the group</span>
+                  </div>
+                  <span style={{ fontFamily: "'Crimson Pro', serif", fontSize: 12, fontWeight: 500, color: gPct === 100 ? "#5C6B3A" : "#8B5A2B", fontStyle: "italic" }}>
+                    {gPct === 100 ? "✓ packed" : `${gChecked} of ${gTotal}`}
+                  </span>
+                </div>
+                <div style={{ padding: "8px 12px" }}>
+                  {gUnchecked.map((item) => (
+                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 10, cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.03)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    >
+                      <div onClick={() => toggleGroupItem(item.id)} style={{ width: 22, height: 22, borderRadius: 6, border: "2px solid rgba(139,90,43,0.2)", cursor: "pointer", flexShrink: 0, transition: "all 0.2s" }} />
+                      <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, fontWeight: 400 }}>
+                        {item.text}
+                        {item.addon && <span style={{ fontSize: 10, color: "#1B7A8A", marginLeft: 6 }}>{allAddons[item.addon]?.icon || "📋"}</span>}
+                        {item.custom && <span style={{ fontSize: 10, color: "#C4620E", marginLeft: 6 }}>★</span>}
+                      </span>
+                      <button onClick={() => deleteGroupItem(item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2, opacity: 0.5 }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}
+                      >×</button>
+                    </div>
+                  ))}
+                  {gDone.length > 0 && (
+                    <div style={{ borderTop: gUnchecked.length > 0 ? "1px dashed rgba(139,90,43,0.08)" : "none", marginTop: 4, paddingTop: 4 }}>
+                      {gDone.map((item) => (
+                        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 8px", opacity: 0.45 }}>
+                          <div onClick={() => toggleGroupItem(item.id)} style={{ width: 22, height: 22, borderRadius: 6, background: tmpl.color, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 12, fontWeight: 700 }}>✓</div>
+                          <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, textDecoration: "line-through" }}>{item.text}</span>
+                          <button onClick={() => deleteGroupItem(item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {addingGroupItem ? (
+                    <div style={{ display: "flex", gap: 8, padding: "8px 8px", alignItems: "center" }}>
+                      <input autoFocus value={newGroupItemText} onChange={(e) => setNewGroupItemText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addCustomGroupItem(); if (e.key === "Escape") { setAddingGroupItem(false); setNewGroupItemText(""); } }}
+                        placeholder="Add group item..."
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 10, fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                      />
+                      <button onClick={addCustomGroupItem} style={{ background: tmpl.color, color: "white", border: "none", borderRadius: 10, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                      <button onClick={() => { setAddingGroupItem(false); setNewGroupItemText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8B5A2B" }}>×</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingGroupItem(true)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: tmpl.color, padding: "10px 8px", fontWeight: 500 }}>
+                      + Add group item
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Sections per person */}
+          {checklist.sections.map((section, sIdx) => {
+            const pt = personTypes.find((p) => p.value === section.person.type);
+            // When groupByActivity is on, filter addon items out of person sections
+            const visibleItems = groupByActivity
+              ? section.items.filter((i) => !i.addon)
+              : section.items;
+            const unchecked = visibleItems.filter((i) => !i.checked);
+            const checked = visibleItems.filter((i) => i.checked);
+            const vTotal = visibleItems.length;
+            const vChecked = checked.length;
+            const vPct = vTotal ? Math.round((vChecked / vTotal) * 100) : 0;
+            return (
+              <div key={section.person.id} style={{ marginBottom: 28, background: "rgba(253,243,220,0.6)", borderRadius: 14, border: "1px solid rgba(139,90,43,0.08)", overflow: "hidden", borderLeft: `3px solid ${tmpl.color}40` }}>
+                {/* Section Header */}
+                <div style={{ padding: "14px 18px", borderBottom: "1px dashed rgba(139,90,43,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{pt.icon}</span>
+                    <span style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: 20, color: "#3B2510" }}>{section.person.name}</span>
+                  </div>
+                  <span style={{ fontFamily: "'Crimson Pro', serif", fontSize: 12, fontWeight: 500, color: vPct === 100 ? "#5C6B3A" : "#8B5A2B", fontStyle: "italic" }}>
+                    {vPct === 100 ? "✓ packed" : `${vChecked} of ${vTotal}`}
+                  </span>
+                </div>
+
+                {/* Items */}
+                <div style={{ padding: "8px 12px" }}>
+                  {unchecked.map((item) => (
+                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 10, cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.03)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    >
+                      <div onClick={() => toggleItem(sIdx, item.id)} style={{ width: 22, height: 22, borderRadius: 6, border: "2px solid rgba(139,90,43,0.2)", cursor: "pointer", flexShrink: 0, transition: "all 0.2s" }} />
+                      <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, fontWeight: 400 }}>
+                        {item.text}
+                        {item.addon && !groupByActivity && <span style={{ fontSize: 10, color: "#1B7A8A", marginLeft: 6 }}>{allAddons[item.addon]?.icon || "📋"}</span>}
+                        {item.duration && <span style={{ fontSize: 10, color: "#7B2D8B", marginLeft: 6 }}>🌄</span>}
+                        {item.weather && <span style={{ fontSize: 10, color: "#8B5A2B", marginLeft: 6 }}>☁️</span>}
+                        {item.custom && <span style={{ fontSize: 10, color: "#C4620E", marginLeft: 6 }}>★</span>}
+                      </span>
+                      <button onClick={() => deleteItem(sIdx, item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2, opacity: 0.5 }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}
+                      >×</button>
+                    </div>
+                  ))}
+
+                  {/* Checked items (dimmed) */}
+                  {checked.length > 0 && (
+                    <div style={{ borderTop: unchecked.length > 0 ? "1px dashed rgba(139,90,43,0.08)" : "none", marginTop: 4, paddingTop: 4 }}>
+                      {checked.map((item) => (
+                        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 8px", opacity: 0.45 }}>
+                          <div onClick={() => toggleItem(sIdx, item.id)} style={{ width: 22, height: 22, borderRadius: 6, background: tmpl.color, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 12, fontWeight: 700 }}>✓</div>
+                          <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, textDecoration: "line-through" }}>{item.text}</span>
+                          <button onClick={() => deleteItem(sIdx, item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add custom item */}
+                  {addingToPerson === sIdx ? (
+                    <div style={{ display: "flex", gap: 8, padding: "8px 8px", alignItems: "center" }}>
+                      <input autoFocus value={newItemText} onChange={(e) => setNewItemText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addCustomItem(sIdx); if (e.key === "Escape") { setAddingToPerson(null); setNewItemText(""); } }}
+                        placeholder="Add item..."
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 10, fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                      />
+                      <button onClick={() => addCustomItem(sIdx)} style={{ background: tmpl.color, color: "white", border: "none", borderRadius: 10, padding: "8px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                      <button onClick={() => { setAddingToPerson(null); setNewItemText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8B5A2B" }}>×</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingToPerson(sIdx)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: tmpl.color, padding: "10px 8px", fontWeight: 500 }}>
+                      + Add custom item
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Activity-grouped sections (when toggle is on) */}
+          {groupByActivity && (checklist.addons || []).map((addonKey) => {
+            const addon = allAddons[addonKey];
+            if (!addon) return null;
+            // Collect all addon items across all person sections for this addon
+            const addonEntries = [];
+            checklist.sections.forEach((section, sIdx) => {
+              section.items.forEach((item) => {
+                if (item.addon === addonKey) {
+                  addonEntries.push({ ...item, sIdx, personName: section.person.name, personIcon: personTypes.find((p) => p.value === section.person.type)?.icon || "🧭" });
+                }
+              });
+            });
+            if (addonEntries.length === 0) return null;
+            const aUnchecked = addonEntries.filter((i) => !i.checked);
+            const aChecked = addonEntries.filter((i) => i.checked);
+            const aTotal = addonEntries.length;
+            const aDone = aChecked.length;
+            const aPct = aTotal ? Math.round((aDone / aTotal) * 100) : 0;
+            return (
+              <div key={addonKey} style={{ marginBottom: 28, background: "rgba(253,243,220,0.6)", backdropFilter: "blur(6px)", borderRadius: 18, border: "1.5px solid rgba(27,122,138,0.15)", overflow: "hidden" }}>
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(139,90,43,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(27,122,138,0.04)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>{addon.icon}</span>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 16 }}>{addon.label}</span>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#8B5A2B", fontWeight: 400 }}>add-on</span>
+                  </div>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, color: aPct === 100 ? "#2D5016" : "#8B5A2B", background: aPct === 100 ? "rgba(45,80,22,0.1)" : "rgba(139,90,43,0.05)", padding: "4px 12px", borderRadius: 20 }}>
+                    {aPct === 100 ? "✓ Done" : `${aDone}/${aTotal}`}
+                  </span>
+                </div>
+                <div style={{ padding: "8px 12px" }}>
+                  {aUnchecked.map((item) => (
+                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderRadius: 10, cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,90,43,0.03)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    >
+                      <div onClick={() => toggleItem(item.sIdx, item.id)} style={{ width: 22, height: 22, borderRadius: 6, border: "2px solid rgba(139,90,43,0.2)", cursor: "pointer", flexShrink: 0, transition: "all 0.2s" }} />
+                      <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, fontWeight: 400 }}>
+                        {item.text}
+                        <span style={{ fontSize: 11, color: "#8B5A2B", marginLeft: 8 }}>{item.personIcon} {item.personName}</span>
+                      </span>
+                      <button onClick={() => deleteItem(item.sIdx, item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2, opacity: 0.5 }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}
+                      >×</button>
+                    </div>
+                  ))}
+                  {aChecked.length > 0 && (
+                    <div style={{ borderTop: aUnchecked.length > 0 ? "1px dashed rgba(139,90,43,0.08)" : "none", marginTop: 4, paddingTop: 4 }}>
+                      {aChecked.map((item) => (
+                        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 8px", opacity: 0.45 }}>
+                          <div onClick={() => toggleItem(item.sIdx, item.id)} style={{ width: 22, height: 22, borderRadius: 6, background: "#1B7A8A", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 12, fontWeight: 700 }}>✓</div>
+                          <span style={{ flex: 1, fontFamily: "'Crimson Pro', serif", fontSize: 15, textDecoration: "line-through" }}>
+                            {item.text}
+                            <span style={{ fontSize: 11, color: "#A8895A", marginLeft: 8 }}>{item.personIcon} {item.personName}</span>
+                          </span>
+                          <button onClick={() => deleteItem(item.sIdx, item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#A8895A", padding: 2 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Edit Trip Modal */}
+          {editMode && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(59,37,16,0.5)", backdropFilter: "blur(4px)", zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}
+              onClick={(e) => { if (e.target === e.currentTarget) closeEditMode(); }}
+            >
+              <div style={{ background: "linear-gradient(170deg, #F5E6C8 0%, #EDD5A8 100%)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(139,90,43,0.25)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                  <h2 style={{ fontFamily: "'Caveat', cursive", fontSize: 26, fontWeight: 700, margin: 0 }}>Edit Trip</h2>
+                  <button onClick={closeEditMode} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#8B5A2B", padding: 4 }}>×</button>
+                </div>
+
+                {/* Edit Nights */}
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ fontFamily: "'Caveat', cursive", fontSize: 18, color: "#5C3D1E", fontWeight: 600, display: "block", marginBottom: 10 }}>Duration (nights)</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <button onClick={() => setEditNights(Math.max(0, editNights - 1))}
+                      style={{ width: 36, height: 36, borderRadius: 8, border: "1.5px solid rgba(139,90,43,0.2)", background: "transparent", cursor: "pointer", fontSize: 18, fontWeight: 500, color: "#5C3D1E", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >−</button>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontFamily: "'Caveat', cursive", fontSize: 32, fontWeight: 700, color: "#3B2510", minWidth: 24, textAlign: "center" }}>{editNights}</span>
+                      <span style={{ fontFamily: "'Crimson Pro', serif", fontSize: 14, color: "#8B5A2B", fontStyle: "italic" }}>{editNights === 1 ? "night" : "nights"}</span>
+                    </div>
+                    <button onClick={() => setEditNights(editNights + 1)}
+                      style={{ width: 36, height: 36, borderRadius: 8, border: "1.5px solid rgba(139,90,43,0.2)", background: "transparent", cursor: "pointer", fontSize: 18, fontWeight: 500, color: "#5C3D1E", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >+</button>
+                    {editNights !== (checklist?.nights || 1) && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#C4620E", fontWeight: 600 }}>changed</span>}
+                  </div>
+                </div>
+
+                {/* Edit People */}
+                <div style={{ marginBottom: 28 }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 10 }}>People</label>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                    {personTypes.map((pt) => {
+                      const actTmpl = getEffectiveActivityTemplate(checklist.activity);
+                      const disabled = actTmpl && (!actTmpl.items[pt.value] || actTmpl.items[pt.value].length === 0);
+                      return (
+                        <button key={pt.value} onClick={() => !disabled && addEditPerson(pt.value)} disabled={disabled}
+                          style={{ padding: "8px 14px", borderRadius: 30, border: "2px solid rgba(139,90,43,0.1)", background: disabled ? "rgba(0,0,0,0.03)" : "rgba(253,243,220,0.6)", cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 5, opacity: disabled ? 0.4 : 1 }}
+                        >
+                          {pt.icon} + {pt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {editPeople.map((person) => {
+                    const pt = personTypes.find((p) => p.value === person.type);
+                    const isExisting = checklist.sections.some((s) => s.person.id === person.id);
+                    return (
+                      <div key={person.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(253,243,220,0.55)", borderRadius: 10, padding: "9px 12px", marginBottom: 6 }}>
+                        <span style={{ fontSize: 18 }}>{pt.icon}</span>
+                        {editPersonNameEdit === person.id ? (
+                          <input autoFocus value={person.name}
+                            onChange={(e) => setEditPeople(editPeople.map((p) => p.id === person.id ? { ...p, name: e.target.value } : p))}
+                            onBlur={() => setEditPersonNameEdit(null)}
+                            onKeyDown={(e) => e.key === "Enter" && setEditPersonNameEdit(null)}
+                            style={{ flex: 1, padding: "3px 8px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 6, fontSize: 13, fontFamily: "'DM Sans', sans-serif", background: "white", outline: "none" }}
+                          />
+                        ) : (
+                          <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+                            onClick={() => setEditPersonNameEdit(person.id)}
+                          >
+                            {person.name} <span style={{ fontSize: 10, color: "#8B5A2B" }}>✎</span>
+                            {!isExisting && <span style={{ fontSize: 10, color: "#2D5016", marginLeft: 6, fontWeight: 600 }}>NEW</span>}
+                          </span>
+                        )}
+                        <button onClick={() => removeEditPerson(person.id)}
+                          disabled={editPeople.length <= 1}
+                          style={{ background: "none", border: "none", cursor: editPeople.length <= 1 ? "not-allowed" : "pointer", fontSize: 16, color: "#C4620E", padding: 2, opacity: editPeople.length <= 1 ? 0.2 : 0.6 }}
+                        >×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Edit Add-ons */}
+                <div style={{ marginBottom: 28 }}>
+                  <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8B5A2B", fontWeight: 600, display: "block", marginBottom: 10 }}>Add-ons</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {Object.entries(allAddons).map(([key, addon]) => {
+                      const active = editAddons.includes(key);
+                      return (
+                        <button key={key} onClick={() => setEditAddons(active ? editAddons.filter((x) => x !== key) : [...editAddons, key])}
+                          style={{ padding: "8px 16px", border: active ? "2px solid #3B2510" : "2px solid transparent", borderRadius: 30, background: active ? "rgba(139,90,43,0.08)" : "rgba(253,243,220,0.55)", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 5, transition: "all 0.2s" }}
+                        >
+                          <span>{addon.icon}</span> {addon.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Summary of changes */}
+                {(() => {
+                  const prevPersonIds = new Set(checklist.sections.map((s) => s.person.id));
+                  const nextPersonIds = new Set(editPeople.map((p) => p.id));
+                  const addedPeople = editPeople.filter((p) => !prevPersonIds.has(p.id));
+                  const removedPeople = checklist.sections.filter((s) => !nextPersonIds.has(s.person.id));
+                  const prevAddons = new Set(checklist.addons || []);
+                  const nextAddonSet = new Set(editAddons);
+                  const addedAddonKeys = editAddons.filter((a) => !prevAddons.has(a));
+                  const removedAddonKeys = (checklist.addons || []).filter((a) => !nextAddonSet.has(a));
+                  const hasChanges = addedPeople.length > 0 || removedPeople.length > 0 || addedAddonKeys.length > 0 || removedAddonKeys.length > 0;
+                  // Also check for name changes
+                  const nameChanges = editPeople.filter((ep) => {
+                    const orig = checklist.sections.find((s) => s.person.id === ep.id);
+                    return orig && orig.person.name !== ep.name;
+                  });
+                  const anyChange = hasChanges || nameChanges.length > 0;
+
+                  if (!anyChange) return (
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#A8895A", textAlign: "center", margin: "0 0 20px" }}>No changes yet</p>
+                  );
+                  return (
+                    <div style={{ background: "rgba(45,80,22,0.05)", borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#5C3D1E" }}>
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: "#8B5A2B" }}>Changes</div>
+                      {addedPeople.map((p) => <div key={p.id}>+ Adding <strong>{p.name}</strong> ({p.type})</div>)}
+                      {removedPeople.map((s) => <div key={s.person.id}>− Removing <strong>{s.person.name}</strong></div>)}
+                      {addedAddonKeys.map((a) => <div key={a}>+ Adding <strong>{allAddons[a]?.label}</strong> add-on</div>)}
+                      {removedAddonKeys.map((a) => <div key={a}>− Removing <strong>{allAddons[a]?.label}</strong> add-on</div>)}
+                      {nameChanges.map((p) => {
+                        const orig = checklist.sections.find((s) => s.person.id === p.id);
+                        return <div key={p.id}>✎ Renaming <strong>{orig.person.name}</strong> → <strong>{p.name}</strong></div>;
+                      })}
+                      <div style={{ fontSize: 11, color: "#8B5A2B", marginTop: 8 }}>Existing checked items will be preserved.</div>
+                    </div>
+                  );
+                })()}
+
+                {/* Apply / Cancel */}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={closeEditMode}
+                    style={{ flex: 1, padding: "14px 20px", border: "1px solid rgba(139,90,43,0.15)", borderRadius: 12, background: "transparent", color: "#5C3D1E", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                  >Cancel</button>
+                  <button onClick={applyEdits} disabled={editPeople.length === 0}
+                    style={{ flex: 1, padding: "14px 20px", border: "none", borderRadius: 12, background: editPeople.length === 0 ? "#A8895A" : "#3B2510", color: "#F5E6C8", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, cursor: editPeople.length === 0 ? "not-allowed" : "pointer", boxShadow: editPeople.length === 0 ? "none" : "0 4px 16px rgba(139,90,43,0.2)" }}
+                  >Apply Changes</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(PackMate));
+</script>
+<script>
+// Register service worker for PWA / offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('SW registered:', reg.scope))
+      .catch((err) => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>

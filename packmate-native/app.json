@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "PackMate",
+    "slug": "packmate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.packmate.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#3B2510",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      }
+    },
+    "platforms": [
+      "android"
+    ],
+    "plugins": [
+      "expo-font",
+      "expo-sqlite"
+    ],
+    "updates": {
+      "enabled": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b810a517-45fc-4e58-96fd-7b01ee0ed983"
+      }
+    }
+  }
+}

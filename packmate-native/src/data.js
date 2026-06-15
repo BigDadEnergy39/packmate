@@ -15,7 +15,7 @@ export const ACTIVITY_TEMPLATES = {
     label: "Road Trip", icon: "🚗", color: "#7B2D8B",
     groupItems: ["DSLR Camera", "Paper towels / napkins", "Trash bag for the car", "First aid kit", "Roadside emergency kit", "Shared playlist / audiobooks", "Physical map / atlas (backup)", "Car phone charger (multi-port)"],
     items: {
-      adult: ["Phone charger & car mount", "Comfortable clothes", "Sunglasses", "Travel pillow", "Playlist/audiobooks", "Cash & cards", "ID/passport", "Toiletries", "Change of clothes", "Reusable bags"],
+      adult: ["Phone charger & car mount", "Comfortable clothes", "Sunglasses", "Travel pillow", "Cash & cards", "ID/passport", "Toiletries", "Change of clothes", "Reusable bags"],
       child: ["Car entertainment (tablet, books)", "Headphones", "Sunglasses", "Comfort blanket", "Travel games", "Crayons & coloring book", "Change of clothes", "Car seat"],
       baby:  ["Car seat", "Diapers & wipes (lots!)", "Pacifier", "Change of clothes x3", "Blanket", "Toys", "Diaper bag", "Trash bags"],
       pet:   ["Pet seat belt/carrier", "Leash & collar", "Waste bags", "Favorite toy", "Pet blanket", "Vet records"],
@@ -43,7 +43,7 @@ export const ACTIVITY_TEMPLATES = {
     label: "Sleepover", icon: "🛏️", color: "#6C5CE7",
     groupItems: ["DSLR Camera", "Movie picks", "Board games / card games", "Bluetooth speaker"],
     items: {
-      adult: ["Sleeping bag or blanket & pillow", "Sunglasses", "Phone & charger", "Change of clothes for tomorrow", "Hairbrush / hair ties", "Card or board games", "Face mask / skincare", "Portable speaker", "Nail polish"],
+      adult: ["Sleeping bag or blanket & pillow", "Sunglasses", "Phone & charger", "Change of clothes for tomorrow", "Hairbrush / hair ties", "Face mask / skincare", "Nail polish"],
       child: ["Sleeping bag", "Pillow", "Sunglasses", "Change of clothes", "Flashlight", "Hairbrush / hair ties", "Journal or sketchbook", "Nail polish / friendship bracelets", "Slippers"],
       baby: [], pet: [],
     },

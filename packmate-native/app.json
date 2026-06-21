@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "android": {
-      "package": "com.packmate.app",
+      "package": "com.bigdadenergy39.PackMate",
       "adaptiveIcon": {
         "backgroundColor": "#3B2510",
         "foregroundImage": "./assets/adaptive-icon.png"

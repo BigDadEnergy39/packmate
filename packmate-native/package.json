@@ -2,6 +2,7 @@
   "name": "packmate-native",
   "version": "1.0.0",
   "main": "index.js",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "@expo-google-fonts/abril-fatface": "^0.4.1",
     "@expo-google-fonts/caveat": "^0.4.2",

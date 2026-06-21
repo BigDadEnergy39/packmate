@@ -1,0 +1,19 @@
+# Normalize line endings: store text as LF in the repo, check out native EOL.
+* text=auto eol=lf
+
+# Treat binary assets as binary (never EOL-normalize or diff as text).
+*.png   binary
+*.webp  binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.jar   binary
+*.keystore binary
+*.apk   binary
+*.aab   binary
+*.zip   binary

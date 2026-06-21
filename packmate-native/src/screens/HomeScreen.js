@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Swipeable } from 'react-native-gesture-handler';
 import { THEME } from '../theme';
 
 // ─── Gear Icon (SVG — avoids Android system emoji hijack) ────────────────────
@@ -157,7 +157,6 @@ export default function HomeScreen({ savedTrips, onNewTrip, onLoadTrip, onDelete
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaView style={styles.safe}>
       <ScrollView
         style={styles.scroll}
@@ -216,7 +215,6 @@ export default function HomeScreen({ savedTrips, onNewTrip, onLoadTrip, onDelete
         )}
       </ScrollView>
     </SafeAreaView>
-    </GestureHandlerRootView>
   );
 }
 

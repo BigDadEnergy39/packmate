@@ -20,7 +20,7 @@ function Checkbox({ checked, onPress, color }) {
 
 // ─── Item Row ─────────────────────────────────────────────────────────────────
 
-function ItemRow({ item, onToggle, onDelete, color, fonts, showPersonLabel }) {
+function ItemRow({ item, onToggle, onDelete, color, fonts }) {
   return (
     <View style={[styles.itemRow, item.checked && styles.itemRowDone]}>
       <Checkbox checked={item.checked} onPress={onToggle} color={color} />
@@ -30,9 +30,6 @@ function ItemRow({ item, onToggle, onDelete, color, fonts, showPersonLabel }) {
         item.checked && styles.itemTextDone,
       ]} numberOfLines={3}>
         {item.text}
-        {showPersonLabel && item.personName
-          ? <Text style={styles.itemPersonLabel}>  {item.personIcon} {item.personName}</Text>
-          : null}
         {item.duration && !item.checked ? <Text style={styles.itemBadge}> 🌄</Text> : null}
         {item.weather  && !item.checked ? <Text style={styles.itemBadge}> ☁️</Text> : null}
         {item.custom   && !item.checked ? <Text style={styles.itemBadge}> ★</Text> : null}
@@ -46,7 +43,7 @@ function ItemRow({ item, onToggle, onDelete, color, fonts, showPersonLabel }) {
 
 // ─── Section Card ─────────────────────────────────────────────────────────────
 
-function SectionCard({ title, icon, subtitle, items, color, fonts, onToggle, onDelete, addingActive, onStartAdd, onCancelAdd, onCommitAdd, addText, onAddTextChange, addPlaceholder, showPersonLabels }) {
+function SectionCard({ title, icon, subtitle, items, color, fonts, onToggle, onDelete, addingActive, onStartAdd, onCancelAdd, onCommitAdd, addText, onAddTextChange, addPlaceholder }) {
   const total   = items.length;
   const checked = items.filter(i => i.checked).length;
   const pct     = total ? Math.round((checked / total) * 100) : 0;
@@ -77,7 +74,6 @@ function SectionCard({ title, icon, subtitle, items, color, fonts, onToggle, onD
           <ItemRow key={item.id} item={item} color={color} fonts={fonts}
             onToggle={() => onToggle(item.id)}
             onDelete={() => onDelete(item.id)}
-            showPersonLabels={showPersonLabels}
           />
         ))}
         {checkedItems.length > 0 && (
@@ -86,7 +82,6 @@ function SectionCard({ title, icon, subtitle, items, color, fonts, onToggle, onD
               <ItemRow key={item.id} item={item} color={color} fonts={fonts}
                 onToggle={() => onToggle(item.id)}
                 onDelete={() => onDelete(item.id)}
-                showPersonLabels={showPersonLabels}
               />
             ))}
           </View>
@@ -445,7 +440,6 @@ const styles = StyleSheet.create({
   itemText:        { flex: 1, fontSize: 15, color: THEME.darkBrown },
   itemTextDone:    { textDecorationLine: 'line-through' },
   itemBadge:       { fontSize: 10 },
-  itemPersonLabel: { fontSize: 11, color: THEME.sepia },
   itemDelete:      { fontSize: 18, color: THEME.accentMuted, opacity: 0.6, paddingHorizontal: 2 },
 
   // Checked divider

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, KeyboardAvoidingView,
+  StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView as SAV } from 'react-native-safe-area-context';
 import {
@@ -11,6 +11,8 @@ import {
   getEffectiveActivityTemplate, getEffectiveDurationItems,
 } from '../data';
 import { THEME } from '../theme';
+
+const MAX_NIGHTS = 30;
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
@@ -165,7 +167,9 @@ export default function SetupScreen({
 
   return (
     <SAV style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      {/* On Android the manifest's adjustResize already handles the keyboard;
+          `padding` behavior would double-adjust, so only use it on iOS. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -212,7 +216,7 @@ export default function SetupScreen({
               </Text>
             </View>
             <TouchableOpacity
-              onPress={() => setNights(n => n + 1)}
+              onPress={() => setNights(n => Math.min(MAX_NIGHTS, n + 1))}
               style={styles.nightsBtn}
               activeOpacity={0.7}
             >

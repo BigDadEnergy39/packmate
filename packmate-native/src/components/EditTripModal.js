@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, Modal,
@@ -13,6 +13,7 @@ import { THEME } from '../theme';
 
 const BABY_KW = /baby|formula|sippy|onesie|infant|toddler/i;
 const PET_KW  = /\bpet\b|dog food|cat food/i;
+const MAX_NIGHTS = 30;
 
 const makeDurationItems = (durationItems, personType, nights) =>
   durationItems
@@ -42,14 +43,15 @@ export default function EditTripModal({ visible, checklist, customAddons = {}, c
 
   const DEFAULT_NAME = /^(Adult|Child|Baby|Pet) \d+$/;
 
-  // Initialise state when modal opens
-  const onShow = () => {
-    if (!checklist) return;
+  // Initialise form state whenever the modal opens. A useEffect on `visible`
+  // is more reliable across RN versions than Modal's onShow callback.
+  useEffect(() => {
+    if (!visible || !checklist) return;
     setEditPeople(checklist.sections.map(s => ({ ...s.person })));
     setEditAddons([...(checklist.addons || [])]);
     setEditNights(checklist.nights || 1);
     setEditingNameId(null);
-  };
+  }, [visible]);
 
   const addPerson = (type) => {
     const typeInfo = personTypes.find(p => p.value === type);
@@ -157,7 +159,7 @@ export default function EditTripModal({ visible, checklist, customAddons = {}, c
   if (!checklist) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onShow={onShow} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
         {/* Handle */}
@@ -182,7 +184,7 @@ export default function EditTripModal({ visible, checklist, customAddons = {}, c
               <Text style={[styles.nightsNum, { fontFamily: fonts.kalam }]}>{editNights}</Text>
               <Text style={[styles.nightsWord, { fontFamily: fonts.crimsonPro }]}>{editNights === 1 ? 'night' : 'nights'}</Text>
             </View>
-            <TouchableOpacity onPress={() => setEditNights(n => n + 1)} style={styles.nightsBtn}>
+            <TouchableOpacity onPress={() => setEditNights(n => Math.min(MAX_NIGHTS, n + 1))} style={styles.nightsBtn}>
               <Text style={[styles.nightsBtnText, { fontFamily: fonts.dmSans }]}>+</Text>
             </TouchableOpacity>
             {nightsChanged && <Text style={[styles.changedBadge, { fontFamily: fonts.dmSans }]}>changed</Text>}

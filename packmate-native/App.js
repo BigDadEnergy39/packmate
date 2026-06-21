@@ -4,6 +4,7 @@ import * as SQLite from 'expo-sqlite';
 import { useState, useEffect } from 'react';
 import * as Font from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { THEME } from './src/theme';
 
@@ -241,115 +242,88 @@ export default function App() {
     );
   }
 
+  let content = null;
   if (screen === 'home') {
-    return (
-      <SafeAreaProvider>
-        <View style={styles.root}>
-          <StatusBar style="light" backgroundColor={THEME.darkBrown} />
-          <HomeScreen
-            savedTrips={savedTrips}
-            fonts={FONTS}
-            onNewTrip={() => setScreen('setup')}
-            onLoadTrip={handleLoadTrip}
-            onReuseTrip={handleReuseTrip}
-            onDeleteTrip={handleDeleteTrip}
-            onSettings={() => setScreen('settings')}
-          />
-        </View>
-      </SafeAreaProvider>
+    content = (
+      <HomeScreen
+        savedTrips={savedTrips}
+        fonts={FONTS}
+        onNewTrip={() => setScreen('setup')}
+        onLoadTrip={handleLoadTrip}
+        onReuseTrip={handleReuseTrip}
+        onDeleteTrip={handleDeleteTrip}
+        onSettings={() => setScreen('settings')}
+      />
     );
-  }
-
-  if (screen === 'setup') {
-    return (
-      <SafeAreaProvider>
-        <View style={styles.root}>
-          <StatusBar style="light" backgroundColor={THEME.darkBrown} />
-          <SetupScreen
-            fonts={FONTS}
-            customActivities={customActivities}
-            hiddenActivities={hiddenActivities}
-            customAddons={customAddons}
-            customIcons={customIcons}
-            templateOverrides={templateOverrides}
-            onGenerate={handleGenerate}
-            onBack={() => setScreen('home')}
-          />
-        </View>
-      </SafeAreaProvider>
+  } else if (screen === 'setup') {
+    content = (
+      <SetupScreen
+        fonts={FONTS}
+        customActivities={customActivities}
+        hiddenActivities={hiddenActivities}
+        customAddons={customAddons}
+        customIcons={customIcons}
+        templateOverrides={templateOverrides}
+        onGenerate={handleGenerate}
+        onBack={() => setScreen('home')}
+      />
     );
-  }
-
-  if (screen === 'settings') {
-    return (
-      <SafeAreaProvider>
-        <View style={styles.root}>
-          <StatusBar style="light" backgroundColor={THEME.darkBrown} />
-          <SettingsScreen
-            fonts={FONTS}
-            savedTrips={savedTrips}
-            customAddons={customAddons}
-            customIcons={customIcons}
-            templateOverrides={templateOverrides}
-            onSetIcon={handleSetIcon}
-            onResetIcons={handleResetIcons}
-            onClearTrips={handleClearTrips}
-            onClearAddons={handleClearAddons}
-            onResetTemplates={handleResetTemplates}
-            onResetAll={handleResetAll}
-            onSaveCustomAddon={handleSaveCustomAddon}
-            onDeleteCustomAddon={handleDeleteCustomAddon}
-            onOpenTemplateEditor={() => setScreen('templateEditor')}
-            onBack={() => setScreen('home')}
-          />
-        </View>
-      </SafeAreaProvider>
+  } else if (screen === 'settings') {
+    content = (
+      <SettingsScreen
+        fonts={FONTS}
+        savedTrips={savedTrips}
+        customAddons={customAddons}
+        customIcons={customIcons}
+        templateOverrides={templateOverrides}
+        onSetIcon={handleSetIcon}
+        onResetIcons={handleResetIcons}
+        onClearTrips={handleClearTrips}
+        onClearAddons={handleClearAddons}
+        onResetTemplates={handleResetTemplates}
+        onResetAll={handleResetAll}
+        onSaveCustomAddon={handleSaveCustomAddon}
+        onDeleteCustomAddon={handleDeleteCustomAddon}
+        onOpenTemplateEditor={() => setScreen('templateEditor')}
+        onBack={() => setScreen('home')}
+      />
     );
-  }
-
-  if (screen === 'templateEditor') {
-    return (
-      <SafeAreaProvider>
-        <View style={styles.root}>
-          <StatusBar style="light" backgroundColor={THEME.darkBrown} />
-          <TemplateEditorScreen
-            fonts={FONTS}
-            templateOverrides={templateOverrides}
-            customActivities={customActivities}
-            hiddenActivities={hiddenActivities}
-            onSaveOverride={handleSaveOverride}
-            onToggleVisibility={handleToggleVisibility}
-            onBack={() => setScreen('settings')}
-          />
-        </View>
-      </SafeAreaProvider>
+  } else if (screen === 'templateEditor') {
+    content = (
+      <TemplateEditorScreen
+        fonts={FONTS}
+        templateOverrides={templateOverrides}
+        customActivities={customActivities}
+        hiddenActivities={hiddenActivities}
+        onSaveOverride={handleSaveOverride}
+        onToggleVisibility={handleToggleVisibility}
+        onBack={() => setScreen('settings')}
+      />
     );
-  }
-
-  if (screen === 'checklist' && checklist) {
-    return (
-      <SafeAreaProvider>
-        <View style={styles.root}>
-          <StatusBar style="light" backgroundColor={THEME.darkBrown} />
-          <ChecklistScreen
-            checklist={checklist}
-            setChecklist={handleChecklistChange}
-            fonts={FONTS}
-            customActivities={customActivities}
-            customAddons={customAddons}
-            customIcons={customIcons}
-            templateOverrides={templateOverrides}
-            onHome={() => setScreen('home')}
-          />
-        </View>
-      </SafeAreaProvider>
+  } else if (screen === 'checklist' && checklist) {
+    content = (
+      <ChecklistScreen
+        checklist={checklist}
+        setChecklist={handleChecklistChange}
+        fonts={FONTS}
+        customActivities={customActivities}
+        customAddons={customAddons}
+        customIcons={customIcons}
+        templateOverrides={templateOverrides}
+        onHome={() => setScreen('home')}
+      />
     );
   }
 
   return (
-    <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
-      <StatusBar style="light" backgroundColor={THEME.darkBrown} />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <View style={styles.root}>
+          <StatusBar style="light" backgroundColor={THEME.darkBrown} />
+          {content}
+        </View>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

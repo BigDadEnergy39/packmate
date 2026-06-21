@@ -147,7 +147,7 @@ function ProgressBar({ checked, total, color, fonts }) {
 
 // ─── Checklist Screen ─────────────────────────────────────────────────────────
 
-export default function ChecklistScreen({ checklist, setChecklist, fonts, customActivities = {}, customAddons = {}, customIcons = {}, onHome }) {
+export default function ChecklistScreen({ checklist, setChecklist, fonts, customActivities = {}, customAddons = {}, customIcons = {}, templateOverrides = {}, onHome }) {
   const [addingToSection, setAddingToSection] = useState(null); // 'food' | 'group' | sectionIdx
   const [newItemText, setNewItemText]         = useState('');
   const [editModalOpen, setEditModalOpen]     = useState(false);
@@ -172,7 +172,11 @@ export default function ChecklistScreen({ checklist, setChecklist, fonts, custom
 
   // ── Mutators ────────────────────────────────────────────────────────────────
 
-  const update = (fn) => setChecklist(prev => fn({ ...prev }));
+  // `setChecklist` (App.handleChecklistChange) expects a concrete checklist
+  // object — NOT a React-style updater function — because it also diffs the
+  // object against savedTrips to persist. Derive the next object from the
+  // current `checklist` prop, which is always fresh after each re-render.
+  const update = (fn) => setChecklist(fn({ ...checklist }));
 
   const toggleItem = (sIdx, itemId) => update(cl => {
     cl.sections = cl.sections.map((s, i) =>
@@ -266,10 +270,11 @@ export default function ChecklistScreen({ checklist, setChecklist, fonts, custom
         checklist={checklist}
         customAddons={customAddons}
         customIcons={customIcons}
+        templateOverrides={templateOverrides}
         fonts={fonts}
         onClose={() => setEditModalOpen(false)}
         onApply={(changes) => {
-          setChecklist(prev => ({ ...prev, ...changes }));
+          setChecklist({ ...checklist, ...changes });
           setEditModalOpen(false);
         }}
       />

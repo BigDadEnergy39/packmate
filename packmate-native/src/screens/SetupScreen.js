@@ -6,8 +6,9 @@ import {
 import { SafeAreaView as SAV } from 'react-native-safe-area-context';
 import {
   ACTIVITY_TEMPLATES, WEATHER_ADDITIONS, ACTIVITY_ADDONS,
-  DURATION_ITEMS, PERSON_TYPES, FOOD_ITEMS,
+  PERSON_TYPES, FOOD_ITEMS,
   generateId, filterFoodItems, applyDurationPlaceholders,
+  getEffectiveActivityTemplate, getEffectiveDurationItems,
 } from '../data';
 import { THEME } from '../theme';
 
@@ -27,6 +28,7 @@ export default function SetupScreen({
   hiddenActivities = [],
   customAddons = {},
   customIcons = {},
+  templateOverrides = {},
   onGenerate,
   onBack,
 }) {
@@ -90,8 +92,11 @@ export default function SetupScreen({
   const canGenerate = selectedActivity && people.length > 0;
 
   const handleGenerate = () => {
-    const template = allActivities[selectedActivity];
-    const effectiveDuration = DURATION_ITEMS; // no overrides yet in native
+    const template = getEffectiveActivityTemplate(
+      allActivities[selectedActivity],
+      templateOverrides[selectedActivity],
+    );
+    const effectiveDuration = getEffectiveDurationItems(templateOverrides);
 
     const sections = people.map(person => {
       const baseItems = (template.items[person.type] || []).map(text => ({
@@ -128,7 +133,7 @@ export default function SetupScreen({
         id: generateId(), text, checked: false, addon: a,
       }))
     );
-    const durationGroup = DURATION_ITEMS
+    const durationGroup = effectiveDuration
       .filter(d => nights >= d.minNights)
       .flatMap(d =>
         (d.items.group || []).map(text => ({ id: generateId(), text, checked: false, duration: true }))
@@ -299,8 +304,10 @@ export default function SetupScreen({
           <SectionLabel fonts={fonts}>The Expedition Party</SectionLabel>
           <View style={styles.pillRow}>
             {personTypes.map(pt => {
-              const tmpl = selectedActivity ? allActivities[selectedActivity] : null;
-              const disabled = tmpl && (!tmpl.items[pt.value] || tmpl.items[pt.value].length === 0);
+              const tmpl = selectedActivity
+                ? getEffectiveActivityTemplate(allActivities[selectedActivity], templateOverrides[selectedActivity])
+                : null;
+              const disabled = tmpl && (!tmpl.items?.[pt.value] || tmpl.items[pt.value].length === 0);
               return (
                 <TouchableOpacity
                   key={pt.value}

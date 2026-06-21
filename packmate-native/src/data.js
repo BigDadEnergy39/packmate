@@ -251,7 +251,21 @@ export const STORAGE_KEYS = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export const generateId = () => crypto.randomUUID();
+// IDs are only used as local, in-app keys (no cryptographic requirement), so a
+// Math.random-based UUIDv4 fallback is fine when the JS engine has no global
+// `crypto` (Hermes does not always expose one — and there is no polyfill here).
+export const generateId = () => {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch (e) { /* fall through to Math.random implementation */ }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 const BABY_KEYWORDS = /baby|formula|sippy|onesie|infant|toddler/i;
 const PET_KEYWORDS  = /\bpet\b|dog food|cat food/i;
@@ -268,3 +282,26 @@ export const applyDurationPlaceholders = (text, nights) =>
     .replace(/\{nights\}/g,   String(nights))
     .replace(/\{nightsX2\}/g, String(nights * 2))
     .replace(/\{nightsX8\}/g, String(nights * 8));
+
+// ─── Template Overrides ───────────────────────────────────────────────────────
+// Merge user customizations (from the Template Editor) onto a base template.
+// Override shapes (per src/screens/TemplateEditorScreen.js saveTab):
+//   activity  → { groupItems?: string[], items?: { adult?: [], child?: [], ... } }
+//   duration  → { items?: { adult?: [], group?: [], ... } }
+// Only edited person-type tabs appear in `items`; untouched tabs fall back to base.
+
+export const getEffectiveActivityTemplate = (base, override) => {
+  if (!base || !override) return base;
+  return {
+    ...base,
+    groupItems: override.groupItems ?? base.groupItems,
+    items: { ...base.items, ...(override.items || {}) },
+  };
+};
+
+export const getEffectiveDurationItems = (overrides = {}) =>
+  DURATION_ITEMS.map((d) => {
+    const ov = overrides[`duration_${d.minNights}`];
+    if (!ov) return d;
+    return { ...d, items: { ...d.items, ...(ov.items || {}) } };
+  });

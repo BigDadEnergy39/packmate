@@ -5,16 +5,17 @@ import {
 } from 'react-native';
 import {
   ACTIVITY_TEMPLATES, WEATHER_ADDITIONS, ACTIVITY_ADDONS,
-  DURATION_ITEMS, PERSON_TYPES, FOOD_ITEMS,
+  PERSON_TYPES, FOOD_ITEMS,
   generateId, applyDurationPlaceholders, filterFoodItems,
+  getEffectiveActivityTemplate, getEffectiveDurationItems,
 } from '../data';
 import { THEME } from '../theme';
 
 const BABY_KW = /baby|formula|sippy|onesie|infant|toddler/i;
 const PET_KW  = /\bpet\b|dog food|cat food/i;
 
-const makeDurationItems = (personType, nights) =>
-  DURATION_ITEMS
+const makeDurationItems = (durationItems, personType, nights) =>
+  durationItems
     .filter(d => nights >= d.minNights)
     .flatMap(d =>
       (d.items[personType] || []).map(raw => ({
@@ -24,10 +25,14 @@ const makeDurationItems = (personType, nights) =>
       }))
     );
 
-export default function EditTripModal({ visible, checklist, customAddons = {}, customIcons = {}, fonts, onApply, onClose }) {
+export default function EditTripModal({ visible, checklist, customAddons = {}, customIcons = {}, templateOverrides = {}, fonts, onApply, onClose }) {
   const allAddons   = { ...ACTIVITY_ADDONS, ...customAddons };
   const personTypes = PERSON_TYPES.map(pt => ({ ...pt, icon: customIcons[pt.value] || pt.icon }));
-  const template    = ACTIVITY_TEMPLATES[checklist?.activity] || ACTIVITY_TEMPLATES.other;
+  const template    = getEffectiveActivityTemplate(
+    ACTIVITY_TEMPLATES[checklist?.activity] || ACTIVITY_TEMPLATES.other,
+    templateOverrides[checklist?.activity],
+  );
+  const effectiveDuration = getEffectiveDurationItems(templateOverrides);
 
   const [editPeople,    setEditPeople]    = useState([]);
   const [editAddons,    setEditAddons]    = useState([]);
@@ -88,7 +93,7 @@ export default function EditTripModal({ visible, checklist, customAddons = {}, c
       if (existing) {
         let items = existing.items.filter(i => !i.addon || !removedAddons.includes(i.addon));
         if (nightsChanged) {
-          items = [...items.filter(i => !i.duration), ...makeDurationItems(person.type, editNights)];
+          items = [...items.filter(i => !i.duration), ...makeDurationItems(effectiveDuration, person.type, editNights)];
         }
         const newAddonItems = addedAddons.flatMap(a =>
           (allAddons[a]?.items[person.type] || []).map(text => ({
@@ -101,7 +106,7 @@ export default function EditTripModal({ visible, checklist, customAddons = {}, c
         const weatherItems = (checklist.weather || []).flatMap(w =>
           WEATHER_ADDITIONS[w].items.map(text => ({ id: generateId(), text, checked: false, weather: true }))
         );
-        const durationItems = makeDurationItems(person.type, editNights);
+        const durationItems = makeDurationItems(effectiveDuration, person.type, editNights);
         const addonItems = editAddons.flatMap(a =>
           (allAddons[a]?.items[person.type] || []).map(text => ({ id: generateId(), text, checked: false, addon: a }))
         );
@@ -114,7 +119,7 @@ export default function EditTripModal({ visible, checklist, customAddons = {}, c
     if (nightsChanged) {
       updatedGroupItems = [
         ...updatedGroupItems.filter(i => !i.duration),
-        ...DURATION_ITEMS.filter(d => editNights >= d.minNights).flatMap(d =>
+        ...effectiveDuration.filter(d => editNights >= d.minNights).flatMap(d =>
           (d.items.group || []).map(text => ({ id: generateId(), text, checked: false, duration: true }))
         ),
       ];

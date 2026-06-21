@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet, Alert,
 } from 'react-native';
@@ -145,8 +145,6 @@ function TripCard({ trip, onLoad, onDelete, onReuse, fonts }) {
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen({ savedTrips, onNewTrip, onLoadTrip, onDeleteTrip, onReuseTrip, onSettings, fonts }) {
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-
   const handleDelete = (id) => {
     Alert.alert(
       'Delete Trip',

@@ -212,6 +212,7 @@ export default function App() {
     setCustomActivities({});
     setHiddenActivities([]);
     setCustomIcons({});
+    setTemplateOverrides({});
     await Promise.all([
       saveToStorage(STORAGE_KEYS.trips, []),
       saveToStorage(STORAGE_KEYS.customAddons, {}),
@@ -270,6 +271,7 @@ export default function App() {
             hiddenActivities={hiddenActivities}
             customAddons={customAddons}
             customIcons={customIcons}
+            templateOverrides={templateOverrides}
             onGenerate={handleGenerate}
             onBack={() => setScreen('home')}
           />
@@ -336,6 +338,7 @@ export default function App() {
             customActivities={customActivities}
             customAddons={customAddons}
             customIcons={customIcons}
+            templateOverrides={templateOverrides}
             onHome={() => setScreen('home')}
           />
         </View>

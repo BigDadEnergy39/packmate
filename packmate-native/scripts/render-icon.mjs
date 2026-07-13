@@ -22,7 +22,12 @@ await sharp(buf).resize(512, 512).png().toFile('assets/icon.png');
 await sharp(buf).resize(192, 192).png().toFile('assets/icon-192.png');
 await sharp(buf).resize(1024, 1024).png().toFile('assets/icon-1024.png');
 
-// Adaptive icon foreground (centered in 108x108 safe zone within 216x216 canvas)
+// Adaptive icon foreground — app.json points to adaptive-icon.png
+await sharp(buf)
+  .resize(432, 432)
+  .extend({ top: 90, bottom: 90, left: 90, right: 90, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .png()
+  .toFile('assets/adaptive-icon.png');
 await sharp(buf)
   .resize(432, 432)
   .extend({ top: 90, bottom: 90, left: 90, right: 90, background: { r: 0, g: 0, b: 0, alpha: 0 } })
